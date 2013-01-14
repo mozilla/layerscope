@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+
+  <link href="css/smoothness/jquery-ui-1.9.2.custom.css" rel="stylesheet">
+  <script src="js/jquery-1.8.3.js"></script>
+  <script src="js/jquery-ui-1.9.2.custom.js"></script>
+
+  <script src="js/lz4-decompress.js"></script>
+  <script src="js/sha1.js"></script>
+  <script src="js/layerview.js"></script>
+
+<style type="text/css">
+body {
+    font-family: sans-serif;
+}
+
+.info-error { color: red; }
+.info-ok { color: green; }
+#urlfield { width: 250px; }
+
+#frameslider {
+    width: 300px;
+    margin: 10px 50px 10px 50px;
+}
+
+.texture-pane {
+    padding: 5px;
+    border: 1px solid gray;
+    box-shadow: 3px 3px 3px gray;
+    margin: 5px;
+    display: inline-block;
+    vertical-align: top;
+}
+
+.texture-pane > p {
+    margin: 0;
+}
+
+.texture-info {
+    font-weight: bold;
+}
+
+.texture-misc-info {
+}
+
+.texture-canvas {
+    text-align: center;
+}
+
+.background-pattern {
+    background: white url(transparent-background.png) repeat;
+}
+
+.background-white {
+    background: white;
+}
+
+.background-black {
+    background: black;
+}
+</style>
+</head>
+<body>
+
+<input id="urlfield" value="ws://192.168.112.129:23457"></input><button id="connect">Connect</button> <span id="infomsg"></span><br>
+Background: <select id="bkgselect">
+  <option selected>Pattern</option>
+  <option>White</option>
+  <option>Black</option>
+</select>
+<div id="info"></div>
+<div id="frameslider"></div>
+
+<div id="framedisplay"></div>
+<div id="log"></div>
+</body>
+</html>

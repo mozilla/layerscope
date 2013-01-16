@@ -10,6 +10,7 @@ GLEnumNames[GL_TEXTURE_RECTANGLE] = "TEXTURE_RECTANGLE";
 var DATA_TYPE_FRAME_START = 0;
 var DATA_TYPE_FRAME_END = 1;
 var DATA_TYPE_TEXTURE_DATA = 2;
+var DATA_TYPE_COLOR_DATA = 3;
 
 var MIN_FRAME_SIZE = 12;
 
@@ -26,6 +27,7 @@ var gCanvasCx;
 
 var lines = 0;
 function ll(s) {
+    //console.log(s);
     return;
 
     if (lines++ > 500)
@@ -34,11 +36,57 @@ function ll(s) {
     $("#log").append($("<span>" + s + "</span><br>"));
 }
 
+function parseURL(url) {
+    var a =  document.createElement('a');
+    a.href = url;
+    return {
+        source: url,
+        protocol: a.protocol.replace(':',''),
+        host: a.hostname,
+        port: a.port,
+        query: a.search,
+        params: (function(){
+            var ret = {},
+                seg = a.search.replace(/^\?/,'').split('&'),
+                len = seg.length, i = 0, s;
+            for (;i<len;i++) {
+                if (!seg[i]) { continue; }
+                s = seg[i].split('=');
+                ret[s[0]] = s[1];
+            }
+            return ret;
+        })(),
+        file: (a.pathname.match(/\/([^\/?#]+)$/i) || [,''])[1],
+        hash: a.hash.replace('#',''),
+        path: a.pathname.replace(/^([^\/])/,'/$1'),
+        relative: (a.href.match(/tps?:\/\/[^\/]+(.+)/) || [,''])[1],
+        segments: a.pathname.replace(/^\//,'').split('/')
+    };
+}
+
 function pad0(s, cnt) {
     while (s.length < cnt) {
 	s = "0" + s;
     }
     return s;
+}
+
+function hex8(val) {
+    return "0x" + pad0(val.toString(16), 8);
+}
+
+function hex16(vh, vl) {
+    return "0x" + pad0(vh.toString(16), 8) + pad0(vl.toString(16), 8);
+}
+
+function rgbaToCss(val) {
+    // the value is abgr, little-endian packed
+    var r = val & 0xff;
+    var g = (val >>> 8) & 0xff;
+    var b = (val >>> 16) & 0xff;
+    var a = (val >>> 24) & 0xff;
+
+    return "rgba(" + r + "," + g + "," + b + "," + a/255.0 + ")";
 }
 
 function clearFrames() {
@@ -50,13 +98,25 @@ function clearFrames() {
     $("#frameslider").slider("option", "max", 0);
 }
 
+function ensureReceivingFrame(vh, vl) {
+    if (receivingFrame)
+	return;
+
+    receivingFrame = {
+	idHigh: vh || 0,
+	idLow: vl || 0,
+        textures: [],
+	layers: []
+    };
+}
+
 function updateInfo(findex) {
     if (findex === undefined)
 	findex = $("#frameslider").slider("value");
     if (frames.length == 0) {
 	$("#info").html("<span>No frames.</span>");
     } else {
-	$("#info").html("<span>Frame " + findex + "/" + (frames.length-1) + " &mdash; stamp: 0x" + pad0(frames[findex].idHigh.toString(16), 8) + pad0(frames[findex].idLow.toString(16), 8) + "</span>");
+	$("#info").html("<span>Frame " + findex + "/" + (frames.length-1) + " &mdash; stamp: " + hex16(frames[findex].idHigh, frames[findex].idLow) + "</span>");
     }
 }
 
@@ -90,7 +150,7 @@ function displayFrame(frameIndex) {
     currentFrameIndex = frameIndex;
     var frame = frames[frameIndex];
 
-    for (var i = 0; i <frame.textures.length; ++i) {
+    for (var i = 0; i < frame.textures.length; ++i) {
 	var d = $("<div>").addClass("texture-pane");
 	var t = frame.textures[i];
 
@@ -99,7 +159,7 @@ function displayFrame(frameIndex) {
 		   + t.width + "x" + t.height + "</p>").addClass("texture-info"));
 
 	if (t.layerRef) {
-	    d.append($("<p>Layer 0x" + pad0(t.layerRef.toString(16), 8) + "</p>").addClass("texture-misc-info"));
+	    d.append($("<p>Layer " + hex8(t.layerRef) + "</p>").addClass("texture-misc-info"));
 	}
 
 	if (t.imageData) {
@@ -110,6 +170,23 @@ function displayFrame(frameIndex) {
 	    cx.putImageData(t.imageData, 0, 0);
 	    d.append(cs);
 	}
+	$("#framedisplay").append(d);
+    }
+
+    for (var i = 0; i < frame.layers.length; ++i) {
+	var d = $("<div>").addClass("layer-pane");
+	var l = frame.layers[i];
+
+	d.append($("<p>" + l.type + " Layer " + hex8(l.layerRef) + " &mdash; " +
+		   + l.width + "x" + l.height + "</p>").addClass("layer-info"));
+
+	if (l.type == "Color") {
+	    var bgdiv = $("<div>").addClass("layer-canvas").addClass("background-" + frameBackground);
+	    var colordiv = $("<div>").width(l.width).height(l.height).css("background-color", rgbaToCss(l.color));
+	    bgdiv.append(colordiv);
+	}
+
+	d.append(bgdiv);
 	$("#framedisplay").append(d);
     }
 }
@@ -137,6 +214,7 @@ function processData(pd) {
 
     switch (dataType) {
         case DATA_TYPE_FRAME_START: {
+	    ll("FRAME_START");
 	    if (receivingFrame) {
 		processFrame(receivingFrame);
 		receivingFrame = null;
@@ -148,11 +226,7 @@ function processData(pd) {
 	    var valueLow = u32[3];
 	    var valueHigh = u32[4];
 
-            receivingFrame = {
-		idHigh: valueHigh,
-		idLow: valueLow,
-                textures: []
-            };
+	    ensureReceivingFrame(valueHigh, valueLow);
 
             pd.offset += 20;
             rv = true;
@@ -160,6 +234,7 @@ function processData(pd) {
         break;
 
         case DATA_TYPE_FRAME_END: {
+	    ll("FRAME_END");
 	    if (left < 20)
 		break;
 
@@ -171,16 +246,41 @@ function processData(pd) {
         }
         break;
 
-        case DATA_TYPE_TEXTURE_DATA: {
-            // 32:type 64:ptr 64:layerref 32:name 32:width 32:height 32:stride 32:format 32:target 32:dataFormat  32:size
-	    if (receivingFrame == null) {
-		receivingFrame = {
-		    idHigh: valueHigh,
-		    idLow: valueLow,
-                    textures: []
-		};
-	    }
+        case DATA_TYPE_COLOR_DATA: {
+	    ll("COLOR_DATA");
+	    ensureReceivingFrame();
 
+	    // 32:type 64:ptr 64:layerref 32:abgr 32:width 32:height
+            var headerSize = 12 + 8 + 4 + 4 + 4;
+            if (left < headerSize)
+                break;
+
+	    var layerRefLow = u32[3];
+	    var layerRefHigh = u32[4];
+            var color = u32[5];
+	    var width = u32[6];
+	    var height = u32[7];
+
+	    var colorData = {
+		type: "Color",
+		color: color,
+		width: width,
+		height: height,
+		layerRef: layerRefLow
+	    };
+
+	    receivingFrame.layers.push(colorData);
+
+	    pd.offset += headerSize;
+	    rv = true;
+	}
+	break;
+
+        case DATA_TYPE_TEXTURE_DATA: {
+	    ll("TEXTURE_DATA");
+	    ensureReceivingFrame();
+
+            // 32:type 64:ptr 64:layerref 32:name 32:width 32:height 32:stride 32:format 32:target 32:dataFormat  32:size
             var headerSize = 12 + 10*4;
             if (left < headerSize)
                 break;
@@ -266,6 +366,7 @@ function processData(pd) {
 
 function onSocketMessage(ev) {
     var data = ev.data;
+    ll("socket data: " + data.byteLength);
 
     if (leftover && leftover.length > 0) {
         // Ugh, we have some leftovers that we didn't read before.  This is a horribly
@@ -330,20 +431,27 @@ $("#connect").click(function() {
 	$("#connect").text("Connect");
 	$("#infomsg").empty();
 	socket = null;
+	leftover = null;
+	receivingFrame = null;
 	return;
     }
 
-    socket = new WebSocket(url, 'binary');
-    socket.binaryType = "arraybuffer";
-    socket.onerror = function(ev) {
-        $("#infomsg").attr("class", "info-error").html("Connection failed.");
-	socket = null;
-    };
-    socket.onopen = function(ev) {
-        $("#infomsg").attr("class", "info-ok").html("Connected.");
-	$("#connect").text("Disconnect");
-    };
-    socket.onmessage = onSocketMessage;
+    var urlinfo = parseURL(url);
+    if (urlinfo.protocol.toLowerCase() == "ws") {
+	socket = new WebSocket(url, 'binary');
+	socket.binaryType = "arraybuffer";
+	socket.onerror = function(ev) {
+            $("#infomsg").attr("class", "info-error").html("Connection failed.");
+	    socket = null;
+	};
+	socket.onopen = function(ev) {
+            $("#infomsg").attr("class", "info-ok").html("Connected.");
+	    $("#connect").text("Disconnect");
+	};
+	socket.onmessage = onSocketMessage;
+    } else {
+	alert("protocol " + urlinfo.protocol + " not implemented");
+    }
 });
 
 $("#frameslider").slider({

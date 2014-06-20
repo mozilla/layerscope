@@ -1,4 +1,4 @@
-LayerScope Viewer
+Layer Viewer
 ==========
 
 Please read this Mozilla Wiki:

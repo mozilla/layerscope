@@ -21,6 +21,19 @@ var gCanvasCx;
 var builder = dcodeIO.ProtoBuf.loadProtoFile("js/protobuf/LayerScopePacket.proto");
 var Packet = builder.build("mozilla.layers.layerscope.Packet");
 
+// Layer Type Map
+const nameMap = [
+  "UnknownLayer",
+  "LayerManager",
+  "ContainerLayer",
+  "ThebesLayer",
+  "CanvasLayer",
+  "ImageLayer",
+  "ColorLayer",
+  "RefLayer",
+  "ReadbackLayer"
+];
+
 /**
  * Log function
  * @param {string} s
@@ -95,8 +108,8 @@ function hex8(val) {
 
 /**
  * Convert to Hex format (16)
- * @param {number} vh High byte address
- * @param {number} vl Low byte address
+ * @param {number} vh High bits
+ * @param {number} vl Low bigs
  * @return {string} String in hex format (16 bits)
  */
 function hex16(vh, vl) {
@@ -132,18 +145,17 @@ function clearFrames() {
 
 /**
  * Check receivingFrame, or initialize it
- * @param {number} vh High byte address
- * @param {number} vl Low byte address
+ * @param {Long} value Address
  */
-function ensureReceivingFrame(vh, vl) {
+function ensureReceivingFrame(value) {
   if (receivingFrame)
     return;
 
   receivingFrame = {
-    idHigh: vh || 0,
-    idLow: vl || 0,
+    id: value || 0,
     textures: [],
-    colors: []
+    colors: [],
+    layers: "" // JSON string
   };
 }
 
@@ -157,7 +169,8 @@ function updateInfo(findex) {
   if (frames.length == 0) {
     $("#info").html("<span>No frames.</span>");
   } else {
-    $("#info").html("<span>Frame " + findex + "/" + (frames.length-1) + " &mdash; stamp: " + hex16(frames[findex].idHigh, frames[findex].idLow) + "</span>");
+    var time = hex16(frames[findex].id.getHighBitsUnsigned(), frames[findex].id.getLowBitsUnsigned());
+    $("#info").html("<span>Frame " + findex + "/" + (frames.length-1) + " &mdash; stamp: " + time + "</span>");
   }
 }
 
@@ -185,6 +198,34 @@ function processFrame(frame) {
 }
 
 /**
+ * Dump layer tree
+ * @param {string} jsonTxt JSON string
+ */
+function DumpLayerTree(jsonTxt) {
+  var d = $("<div>").addClass("layers-dump");
+  var string = "";
+  var tree = JSON.parse(jsonTxt);
+
+  for (var i = 0; i < tree.length; ++i) {
+    var t = tree[i];
+    string += "<li>";
+    string += nameMap[t.type] + ", (" + hex8(t.ptr.low) + ") (parent: " + hex8(t.parentPtr.low) + ") ";
+    if (t.visible) {
+      string += "(" + t.width + ", " + t.height + ")";
+    } else {
+      string += "[non visible]";
+    }
+    string += "</li>";
+  }
+
+  d.append($("<ul>" + string + "</ul>"));
+
+  // append to layerdump div
+  $("#layerdump").empty();
+  $("#layerdump").append(d);
+}
+
+/**
  * Add frame information with html tag and display it
  * @param {number} frameIndex
  */
@@ -199,6 +240,10 @@ function displayFrame(frameIndex) {
   currentFrameIndex = frameIndex;
   var frame = frames[frameIndex];
 
+  if (frame.layers) {
+    DumpLayerTree(frame.layers);
+  }
+
   for (var i = 0; i < frame.textures.length; ++i) {
     var d = $("<div>").addClass("texture-pane");
     var t = frame.textures[i];
@@ -208,7 +253,7 @@ function displayFrame(frameIndex) {
           + t.width + "x" + t.height + "</p>").addClass("texture-info"));
 
     if (t.layerRef) {
-      d.append($("<p>Layer " + hex8(t.layerRef) + "</p>").addClass("texture-misc-info"));
+      d.append($("<p>Layer " + hex8(t.layerRef.low) + "</p>").addClass("texture-misc-info"));
     }
 
     if (t.imageData) {
@@ -226,7 +271,7 @@ function displayFrame(frameIndex) {
     var d = $("<div>").addClass("layer-pane");
     var l = frame.colors[i];
 
-    d.append($("<p>" + l.type + " Layer " + hex8(l.layerRef) + " &mdash; " +
+    d.append($("<p>" + l.type + " Layer " + hex8(l.layerRef.low) + " &mdash; " +
           + l.width + "x" + l.height + "</p>").addClass("layer-info"));
 
     if (l.type == "Color") {
@@ -302,7 +347,7 @@ function processData(buffer) {
         }
 
         if (p.frame != null) {
-          ensureReceivingFrame(0, p.frame.value);
+          ensureReceivingFrame(p.frame.value);
         }
         break;
 
@@ -322,7 +367,8 @@ function processData(buffer) {
             color: c.color,
             width: c.width,
             height: c.height,
-            layerRef: c.layerref
+            layerRef: {low: c.layerref.getLowBitsUnsigned(),
+                       high: c.layerref.getHighBitsUnsigned()}
           };
           receivingFrame.colors.push(colorData);
         }
@@ -340,12 +386,36 @@ function processData(buffer) {
             stride: t.stride,
             target: t.target,
             dataFormat: t.dataformat,
-            layerRef: t.layerref,
+            layerRef: {low: t.layerref.getLowBitsUnsigned(),
+                       high: t.layerref.getHighBitsUnsigned()},
             contextRef: t.glcontext
           };
           var buf = t.data.toArrayBuffer();
           texData.imageData = createImage(buf, texData);
           receivingFrame.textures.push(texData);
+        }
+        break;
+      case Packet.DataType.LAYERS:
+        ll("Layer Tree (Layers Dump)");
+        ensureReceivingFrame();
+        if (p.layers != null) {
+          var l = p.layers;
+          var layerTree = [];
+          for (var i = 0; i < l.layer.length; ++i) {
+            var data = l.layer[i];
+            var node = {
+              type: data.type,
+              ptr: {low: data.ptr.getLowBitsUnsigned(),
+                    high: data.ptr.getHighBitsUnsigned()},
+              parentPtr: {low: data.parentptr.getLowBitsUnsigned(),
+                          high: data.parentptr.getHighBitsUnsigned()},
+              width: data.width,
+              height: data.height,
+              visible: !!data.visible
+            };
+            layerTree.push(node);
+          }
+          receivingFrame.layers = JSON.stringify(layerTree);
         }
         break;
 

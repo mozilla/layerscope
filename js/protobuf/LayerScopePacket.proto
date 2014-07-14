@@ -25,16 +25,43 @@ message TexturePacket {
   optional bytes data = 9;
 }
 
+message LayersPacket {
+  message Layer {
+    enum LayerType {
+      UnknownLayer = 0;
+      LayerManager = 1;
+      ContainerLayer = 2;
+      ThebesLayer = 3;
+      CanvasLayer = 4;
+      ImageLayer = 5;
+      ColorLayer = 6;
+      RefLayer = 7;
+      ReadbackLayer = 8;
+    }
+    required LayerType type = 1;
+    required uint64 ptr = 2;
+    optional uint64 parentptr = 3;
+    optional uint32 width = 4;
+    optional uint32 height = 5;
+    optional bool visible = 6;
+  }
+  repeated Layer layer = 1;
+}
+
+// We only need to use this Packet.
+// Other packet definitions are just type defines
 message Packet {
   enum DataType {
     FRAMESTART = 1;
     FRAMEEND = 2;
     COLOR = 3;
     TEXTURE = 4;
+    LAYERS = 5;
   }
   required DataType type = 1;
 
   optional FramePacket frame = 2;
   optional ColorPacket color = 3;
   optional TexturePacket texture = 4;
+  optional LayersPacket layers = 5;
 }

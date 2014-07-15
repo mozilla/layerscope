@@ -12,7 +12,7 @@
     <script src="js/protobuf/Long.js"></script>
     <script src="js/protobuf/ByteBufferAB.js"></script>
     <script src="js/protobuf/ProtoBuf.js"></script>
-    <script src="js/layerview.js"></script>
+    <script type="application/javascript;version=1.8" src="js/layerview.js"></script>
 
     <style type="text/css">
       body {
@@ -57,10 +57,6 @@
         text-align: center;
       }
 
-      .layers-dump {
-        white-space: nowrap;
-      }
-
       .background-pattern {
         background: white url(transparent-background.png) repeat;
       }
@@ -71,6 +67,45 @@
 
       .background-black {
         background: black;
+      }
+
+      #layertree-table {
+        width: 100%;
+      }
+
+      #layertree-tree {
+        width: 60%;
+        vertical-align: top;
+      }
+
+      #layertree-attr {
+        vertical-align: top;
+      }
+
+      .nonwrap{
+        white-space: nowrap;
+      }
+
+      .layerattr-table {
+        width: 400px;
+        border: 1px dotted black;
+      }
+
+      .layerattr-title {
+        background: AliceBlue;
+        text-align: center;
+      }
+
+      .layer-grayout {
+        color: LightGray;
+      }
+
+      .highlight-pane {
+        border: 5px solid red;
+      }
+
+      .highlight-text {
+        background-color: yellow;
       }
     </style>
   </head>
@@ -84,8 +119,13 @@
     <div id="info"></div>
     <div id="frameslider"></div>
     <div>
-      <h3>Layer Dump:</h3>
-      <div id="layerdump"></div>
+      <h3>Layer Tree:</h3>
+      <table id="layertree-table">
+        <tr>
+          <td id="layertree-tree"><div id="layertree" class="nonwrap"></div></td>
+          <td id="layertree-attr"><div id="layerattr" class="nonwrap"></div></td>
+        </tr>
+      </table>
     </div>
     <div>
       <h3>Layer Scope:</h3>

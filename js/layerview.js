@@ -22,7 +22,7 @@ var builder = dcodeIO.ProtoBuf.loadProtoFile("js/protobuf/LayerScopePacket.proto
 var Packet = builder.build("mozilla.layers.layerscope.Packet");
 
 // Layer Type Map
-const nameMap = [
+const gLayerNameMap = [
   "UnknownLayer",
   "LayerManager",
   "ContainerLayer",
@@ -32,6 +32,17 @@ const nameMap = [
   "ColorLayer",
   "RefLayer",
   "ReadbackLayer"
+];
+
+// Filter Type Map
+const gFilterMap = [
+  "Fast",
+  "Good",
+  "Best",
+  "Nearest",
+  "Bilinear",
+  "Gaussian",
+  "Sentinel"
 ];
 
 /**
@@ -168,8 +179,17 @@ function updateInfo(findex) {
     findex = $("#frameslider").slider("value");
   if (frames.length == 0) {
     $("#info").html("<span>No frames.</span>");
+  } else if (findex >= frames.length) {
+    console.log("error: Frame index is out of range");
   } else {
-    var time = hex16(frames[findex].id.getHighBitsUnsigned(), frames[findex].id.getLowBitsUnsigned());
+    var stamp = frames[findex].id;
+    var time = "";
+    if (!!frames[findex].id) {
+      time = hex16(stamp.getHighBitsUnsigned(), stamp.getLowBitsUnsigned());
+    } else {
+      // Special case, I should figure out why PR_Now() gave me 0.....
+      time = hex16(0, 0);
+    }
     $("#info").html("<span>Frame " + findex + "/" + (frames.length-1) + " &mdash; stamp: " + time + "</span>");
   }
 }
@@ -198,31 +218,275 @@ function processFrame(frame) {
 }
 
 /**
- * Dump layer tree
- * @param {string} jsonTxt JSON string
+ * Handle layer attribute and show them in html
+ * @param {object} data The attribute data
+ * @return ul tag with attributes
  */
-function DumpLayerTree(jsonTxt) {
-  var d = $("<div>").addClass("layers-dump");
-  var string = "";
-  var tree = JSON.parse(jsonTxt);
+function showAttributes(data) {
+  // Show functions wrapper
+  var showAttrWrapper = {
+    showClip: // Create clip info
+      function(clip) {
+        return $("<li>Clip: (x=" + clip.x +
+                          ", y=" + clip.y +
+                          ", w=" + clip.w +
+                          ", h=" + clip.h + ")</li>");
+      },
+    showTransform: // Create transform info
+      function(transform) {
+        let $li = $("<li>");
+        if(transform.is2D) {
+          if(transform.isID) {
+            $li.append("Transform: 2D Identity");
+          } else {
+            $li.append("Transform: [");
+            for (let i=0; i<6; i+=2) {
+              $li.append(transform.m[i] + ", " + transform.m[i+1] + "; ");
+            }
+            $li.append("]");
+          }
+        } else {
+          $li.append("Transform:<br>");
+          for (let i=0; i<16; i+=4) {
+              $li.append("[" + transform.m[i]   + ", " +
+                               transform.m[i+1] + ", " +
+                               transform.m[i+2] + ", " +
+                               transform.m[i+3] + "]<br>");
+          }
+        }
+        return $li;
+      },
+    showRegion: // Create region info
+      function(region, name) {
+        let $li = $("<li>");
+        for (let r of region) {
+          $li.append(name + ": (x=" + r.x +
+                             ", y=" + r.y +
+                             ", w=" + r.w +
+                             ", h=" + r.h + ")<br>");
+        }
+        return $li;
+      }
+  };
 
-  for (var i = 0; i < tree.length; ++i) {
-    var t = tree[i];
-    string += "<li>";
-    string += nameMap[t.type] + ", (" + hex8(t.ptr.low) + ") (parent: " + hex8(t.parentPtr.low) + ") ";
-    if (t.visible) {
-      string += "(" + t.width + ", " + t.height + ")";
-    } else {
-      string += "[non visible]";
+  // OK, Let's start to show attributes
+  var $ul = $("<ul>");
+  var $li = $("<li>").append("Type: " + gLayerNameMap[data.type] + "Composite");
+  if (!data.parentPtr.low) {
+    $li.append(" [root]");
+  }
+  $ul.append($li);
+
+  // Actually, only visible layers enter this function
+  if (!!data.shadow) {
+    let $sli = $("<li>").append("Shadow:");
+    let $sul = $("<ul>");
+    if (!!data.shadow.clip) {
+      $sul.append(showAttrWrapper.showClip(data.shadow.clip));
     }
-    string += "</li>";
+    if (!!data.shadow.transform) {
+      $sul.append(showAttrWrapper.showTransform(data.shadow.transform));
+    }
+    if (!!data.shadow.region) {
+      $sul.append(showAttrWrapper.showRegion(data.shadow.region, "Visible"));
+    }
+    $sli.append($sul);
+    $ul.append($sli);
   }
 
-  d.append($("<ul>" + string + "</ul>"));
+  if (!!data.clip) {
+    $ul.append(showAttrWrapper.showClip(data.clip));
+  }
 
-  // append to layerdump div
-  $("#layerdump").empty();
-  $("#layerdump").append(d);
+  if (!!data.transform) {
+    $ul.append(showAttrWrapper.showTransform(data.transform));
+  }
+
+  if (!!data.region) {
+    $ul.append(showAttrWrapper.showRegion(data.region, "Visible"));
+  }
+
+  if (!!data.opacity) {
+    $ul.append("<li>Opacity: "+ data.opacity + "</li>");
+  }
+
+  if (!!data.opaque) {
+    $ul.append("<li>[Content Opaque]</li>");
+  }
+
+  if (!!data.alpha) {
+    $ul.append("<li>[Content Component Alpha]</li>");
+  }
+
+  if (!!data.direct) {
+    let $li = $("<li>");
+    if (data.direct === LayersPacket.Layer.ScrollingDirect.VERTICAL ) {
+      $li.append("VERTICAL: ");
+    } else {
+      $li.append("HORIZONTAL: ");
+    }
+    $li.append("(id: " + hex8(data.barID.low) + " )");
+    $ul.append($li);
+  }
+
+  if (!!data.mask) {
+    $ul.append("<li>Mask Layer: "+ hex8(data.mask) + "</li>");
+  }
+
+  // Specific layer data
+  // Valid (ThebesLayer)
+  if (!!data.valid) {
+    $ul.append(showAttrWrapper.showRegion(data.valid, "Valid"));
+  }
+  // Color (ColorLayer)
+  if (!!data.color) {
+    $ul.append("<li>Color: " + rgbaToCss(data.color) +"</li>");
+  }
+  // Filter (CanvasLayer & ImageLayer)
+  if (!!data.filter) {
+    $ul.append("<li>Filter: " + gFilterMap[data.filter] + "</li>");
+  }
+  // Ref ID (RefLayer)
+  if (!!data.refID) {
+    $ul.append("<li>ID: " + hex8(data.refID.low) + "</li>");
+  }
+  // Size (ReadbackLayer)
+  if (!!data.size) {
+    $ul.append("<li>Size: (w=" + data.size.w +
+                        ", h=" + data.size.h + ")</li>");
+  }
+  return $ul;
+}
+
+/**
+ * highlight and unhighlight the specific layer image
+ * Note: This function is used for jQuery mouseenter
+ */
+function highlight() {
+  // Highlight text
+  $(".highlight-text").removeClass("highlight-text");
+  $(this).addClass("highlight-text");
+
+  // Highligh images
+  $(".highlight-pane").removeClass("highlight-pane");
+  $("." + $(this).data("ptr").toString()).addClass("highlight-pane");
+
+  // Append Attributes
+  var $d = $("<div>");
+  var $table = $("<table>").addClass("layerattr-table");
+  var $tr = $("<tr>").addClass("layerattr-title").append("<td><strong>Layer Attributes</strong></td>");
+  $table.append($tr);
+  $tr = $("<tr>").append("<td><ul>" + showAttributes($(this).data("layerValue")).html() + "</ul></td>");
+  $table.append($tr);
+  $d.append($table);
+
+  $("#layerattr").empty();
+  $("#layerattr").append($d);
+}
+
+/**
+ * Dump layer tree
+ * @param {string} jsonTxt Frame tree data
+ */
+function dumpLayerTree(jsonTxt) {
+  // DFS print
+  var dfs = function(node) {
+    var $span = $("<span>");
+
+    // Store data into this tag
+    $span.data("layerValue", node.value);
+
+    // Setting
+    var isRoot = !node.value.parentPtr.low;
+    var invisible = !node.value.region;
+    if (invisible && !isRoot) {
+      $span.addClass("layer-grayout");
+    } else {
+      $span.data("ptr", node.value.ptr.low);
+      $span.mouseenter(highlight);
+    }
+
+    // Self info
+    $span.append(gLayerNameMap[node.value.type] + "(" + hex8(node.value.ptr.low) + ") ");
+    if (isRoot) {
+      $span.append("[root]");
+    } else if (invisible) {
+      $span.append("[non visible]");
+    }
+    var $li = $("<li>").append($span);
+
+    // Children
+    for (let child of node.children) {
+      $li.append(dfs(child));
+    }
+    return $("<ul>").append($li);
+  };
+
+  if (!jsonTxt) {
+    return;
+  }
+
+  var tree = JSON.parse(jsonTxt);
+  var $d = $("<div>");
+  for (let t of tree) {
+    $d.append(dfs(t));
+  };
+
+  // Append to layerdump div
+  $("#layertree").empty();
+  $("#layertree").append($d);
+  $("#layerattr").empty();
+}
+
+/**
+ * Dump layer scope
+ * @param {object} frame The specific frame data which contains texture or color layers
+ */
+function dumpLayerScope(frame) {
+  var dumpTextureLayer = function(frame, $panel) {
+    for (let t of frame.textures) {
+      let d = $("<div>").addClass("texture-pane").addClass(t.layerRef.low.toString());
+
+      d.append($("<p>" + t.name + " &mdash; " +
+            GLEnumNames[t.target] + " &mdash; "
+            + t.width + "x" + t.height + "</p>").addClass("texture-info"));
+
+      if (t.layerRef) {
+        d.append($("<p>Layer " + hex8(t.layerRef.low) + "</p>").addClass("texture-misc-info"));
+      }
+
+      if (t.imageData) {
+        let cs = $("<canvas>").addClass("texture-canvas").addClass("background-" + frameBackground)[0];
+        cs.width = t.width;
+        cs.height = t.height;
+        let cx = cs.getContext("2d");
+        cx.putImageData(t.imageData, 0, 0);
+        d.append(cs);
+      }
+      $panel.append(d);
+    }
+  };
+  var dumpColorLayer = function(frame, $panel) {
+    for (let l of frame.colors) {
+      let d = $("<div>").addClass("layer-pane").addClass(l.layerRef.low.toString());
+
+      d.append($("<p>" + l.type + " Layer " + hex8(l.layerRef.low) + " &mdash; " +
+            + l.width + "x" + l.height + "</p>").addClass("layer-info"));
+
+      if (l.type == "Color") {
+        var bgdiv = $("<div>").addClass("layer-canvas").addClass("background-" + frameBackground);
+        let colordiv = $("<div>").width(l.width).height(l.height).css("background-color", rgbaToCss(l.color));
+        bgdiv.append(colordiv);
+      }
+
+      d.append(bgdiv);
+      $panel.append(d);
+    }
+  };
+
+  $("#framedisplay").empty();
+  dumpTextureLayer(frame, $('#framedisplay'));
+  dumpColorLayer(frame, $('#framedisplay'));
 }
 
 /**
@@ -230,8 +494,6 @@ function DumpLayerTree(jsonTxt) {
  * @param {number} frameIndex
  */
 function displayFrame(frameIndex) {
-  $("#framedisplay").empty();
-
   updateInfo(frameIndex);
 
   if (frameIndex >= frames.length)
@@ -240,49 +502,8 @@ function displayFrame(frameIndex) {
   currentFrameIndex = frameIndex;
   var frame = frames[frameIndex];
 
-  if (frame.layers) {
-    DumpLayerTree(frame.layers);
-  }
-
-  for (var i = 0; i < frame.textures.length; ++i) {
-    var d = $("<div>").addClass("texture-pane");
-    var t = frame.textures[i];
-
-    d.append($("<p>" + t.name + " &mdash; " +
-          GLEnumNames[t.target] + " &mdash; "
-          + t.width + "x" + t.height + "</p>").addClass("texture-info"));
-
-    if (t.layerRef) {
-      d.append($("<p>Layer " + hex8(t.layerRef.low) + "</p>").addClass("texture-misc-info"));
-    }
-
-    if (t.imageData) {
-      var cs = $("<canvas>").addClass("texture-canvas").addClass("background-" + frameBackground)[0];
-      cs.width = t.width;
-      cs.height = t.height;
-      var cx = cs.getContext("2d");
-      cx.putImageData(t.imageData, 0, 0);
-      d.append(cs);
-    }
-    $("#framedisplay").append(d);
-  }
-
-  for (var i = 0; i < frame.colors.length; ++i) {
-    var d = $("<div>").addClass("layer-pane");
-    var l = frame.colors[i];
-
-    d.append($("<p>" + l.type + " Layer " + hex8(l.layerRef.low) + " &mdash; " +
-          + l.width + "x" + l.height + "</p>").addClass("layer-info"));
-
-    if (l.type == "Color") {
-      var bgdiv = $("<div>").addClass("layer-canvas").addClass("background-" + frameBackground);
-      var colordiv = $("<div>").width(l.width).height(l.height).css("background-color", rgbaToCss(l.color));
-      bgdiv.append(colordiv);
-    }
-
-    d.append(bgdiv);
-    $("#framedisplay").append(d);
-  }
+  dumpLayerTree(frame.layers);
+  dumpLayerScope(frame);
 }
 
 /**
@@ -301,8 +522,8 @@ function createImage(data, texData) {
   } else if (texData.width > 0 && texData.height > 0) {
     if ((texData.dataFormat >> 16) & 1) {
       // it's lz4 compressed
-      var dstData = new Uint8Array(texData.stride * texData.height);
-      var rv = LZ4_uncompressChunk(srcData, dstData);
+      let dstData = new Uint8Array(texData.stride * texData.height);
+      let rv = LZ4_uncompressChunk(srcData, dstData);
       if (rv < 0)
         console.log("uncompression error at: ", rv);
       srcData = dstData;
@@ -313,9 +534,9 @@ function createImage(data, texData) {
     if (texData.stride == texData.width * 4) {
       texImageData.data.set(srcData);
     } else {
-      var dstData = texImageData.data;
-      for (var j = 0; j < texData.height; j++) {
-        for (var i = 0; i < texData.width; i++) {
+      let dstData = texImageData.data;
+      for (let j = 0; j < texData.height; j++) {
+        for (let i = 0; i < texData.width; i++) {
           dstData[j*texData.width*4 + i*4 + 0] = srcData[j*texData.stride + i*4 + 0];
           dstData[j*texData.width*4 + i*4 + 1] = srcData[j*texData.stride + i*4 + 1];
           dstData[j*texData.width*4 + i*4 + 2] = srcData[j*texData.stride + i*4 + 2];
@@ -323,12 +544,102 @@ function createImage(data, texData) {
         }
       }
     }
-
     if (hash)
       imageCache[hash] = texImageData;
   }
-
   return texImageData;
+}
+
+/**
+ * Reconstruct layer tree by node list
+ * @param {Array} nodeList The layer dump node list
+ * @return {Array} Tree root array
+ */
+function constructTree(nodeList) {
+  var roots = [];
+  var children = {}; // hash table: parent address -> children array
+
+  // TreeNode Construct
+  var treeNode = function(property) {
+    this.value = property;
+    this.children = [];
+  };
+
+  for (let item of nodeList) {
+    let p = item.parentPtr.low;
+    let target = !p ? roots : (children[p] || (children[p] = []));
+    target.push(new treeNode(item));
+  }
+
+  // DFS traverse by resursion
+  var findChildren = function(papa){
+    if (children[papa.value.ptr.low]) {
+      papa.children = children[papa.value.ptr.low];
+      for (let ch of papa.children) {
+        findChildren(ch);
+      }
+    }
+  };
+
+  for (let r of roots) {
+    findChildren(r);
+  }
+
+  return roots;
+}
+
+/**
+ * Create Layer Node
+ * @param {object} buffer The ByteBuffer data
+ * @return {object} The layer node data
+ */
+function createLayerNode(data) {
+  var node = {
+    type: data.type,
+    ptr: {low: data.ptr.getLowBitsUnsigned(),
+          high: data.ptr.getHighBitsUnsigned()},
+    parentPtr: {low: data.parentPtr.getLowBitsUnsigned(),
+                high: data.parentPtr.getHighBitsUnsigned()},
+    shadow: null,
+    clip: !!data.clip ? {x: data.clip.x, y: data.clip.y, w: data.clip.w, h: data.clip.h} : null,
+    transform: null,
+    region: !!data.vRegion ? [{x:n.x, y:n.y, w:n.w, h:n.h} for (n of data.vRegion.r)] : null,
+    opaque: data.cOpaque,
+    alpha: data.cAlpha,
+    opacity: data.opacity,
+    scrollDir: data.direct,
+    barID: !!data.barID ? {low: data.barID.getLowBitsUnsigned(), high: data.barID.getHighBitsUnsigned()} : null,
+    mask: data.mask,
+
+    // Specific layer data
+    valid: !!data.valid ? [{x:n.x, y:n.y, w:n.w, h:n.h} for (n of data.valid.r)] : null,
+    color: data.color,
+    filter: data.filter,
+    refID: !!data.refID ? {low: data.refID.getLowBitsUnsigned(), high: data.refID.getHighBitsUnsigned()} : null,
+    size: !!data.size ? {w: data.size.w, h: data.size.h} : null
+  };
+  // handle shadow
+  if (!!data.shadow) {
+    node.shadow = {
+      clip: !!data.shadow.clip ? {x: data.shadow.clip.x,
+                                  y: data.shadow.clip.y,
+                                  w: data.shadow.clip.w,
+                                  h: data.shadow.clip.h} : null,
+      transform: !!data.shadow.transform ? {is2D: !!data.shadow.transform.is2D,
+                                            isID: !!data.shadow.transform.isID,
+                                            m: [e for (e of data.shadow.transform.m)]} : null,
+      region: !!data.shadow.vRegion ? [{x:n.x, y:n.y, w:n.w, h:n.h} for (n of data.shadow.vRegion.r)] : null
+    };
+  }
+  // handle transform
+  if (!!data.transform) {
+    node.transform = {
+      is2D: !!data.transform.is2D,
+      isID: !!data.transform.isID,
+      m: [ele for (ele of data.transform.m)]
+    };
+  }
+  return node;
 }
 
 /**
@@ -336,94 +647,83 @@ function createImage(data, texData) {
  * @param {ByteBuffer} buffer The data buffer from google protocol buffer
  */
 function processData(buffer) {
+  var p = null;
   try {
-    var p = Packet.decode(buffer);
-    switch(p.type) {
-      case Packet.DataType.FRAMESTART:
-        ll("FRAMESTART packet");
-        if (receivingFrame) {
-          processFrame(receivingFrame);
-          receivingFrame = null;
-        }
+    p = Packet.decode(buffer);
+  } catch (e) {
+    console.log("Fatal error: Decode ByteBuffer failed! Maybe you should update the .proto file.");
+    return;
+  }
 
-        if (p.frame != null) {
-          ensureReceivingFrame(p.frame.value);
-        }
-        break;
-
-      case Packet.DataType.FRAMEEND:
-        ll("FRAMEEND packet");
+  switch(p.type) {
+    case Packet.DataType.FRAMESTART:
+      ll("FRAMESTART packet");
+      if (receivingFrame) {
         processFrame(receivingFrame);
         receivingFrame = null;
-        break;
+      }
+      if (p.frame != null) {
+        ensureReceivingFrame(p.frame.value);
+      }
+      break;
 
-      case Packet.DataType.COLOR:
-        ll("COLOR packet");
-        ensureReceivingFrame();
-        if (p.color != null) {
-          var c = p.color;
-          var colorData = {
-            type: "Color",
-            color: c.color,
-            width: c.width,
-            height: c.height,
-            layerRef: {low: c.layerref.getLowBitsUnsigned(),
-                       high: c.layerref.getHighBitsUnsigned()}
-          };
-          receivingFrame.colors.push(colorData);
-        }
-        break;
+    case Packet.DataType.FRAMEEND:
+      ll("FRAMEEND packet");
+      processFrame(receivingFrame);
+      receivingFrame = null;
+      break;
 
-      case Packet.DataType.TEXTURE:
-        ll("TEXTURE Packet");
-        ensureReceivingFrame();
-        if (p.texture != null) {
-          var t = p.texture;
-          var texData = {
-            name: t.name,
-            width: t.width,
-            height: t.height,
-            stride: t.stride,
-            target: t.target,
-            dataFormat: t.dataformat,
-            layerRef: {low: t.layerref.getLowBitsUnsigned(),
-                       high: t.layerref.getHighBitsUnsigned()},
-            contextRef: t.glcontext
-          };
-          var buf = t.data.toArrayBuffer();
-          texData.imageData = createImage(buf, texData);
-          receivingFrame.textures.push(texData);
-        }
-        break;
-      case Packet.DataType.LAYERS:
-        ll("Layer Tree (Layers Dump)");
-        ensureReceivingFrame();
-        if (p.layers != null) {
-          var l = p.layers;
-          var layerTree = [];
-          for (var i = 0; i < l.layer.length; ++i) {
-            var data = l.layer[i];
-            var node = {
-              type: data.type,
-              ptr: {low: data.ptr.getLowBitsUnsigned(),
-                    high: data.ptr.getHighBitsUnsigned()},
-              parentPtr: {low: data.parentptr.getLowBitsUnsigned(),
-                          high: data.parentptr.getHighBitsUnsigned()},
-              width: data.width,
-              height: data.height,
-              visible: !!data.visible
-            };
-            layerTree.push(node);
-          }
-          receivingFrame.layers = JSON.stringify(layerTree);
-        }
-        break;
+    case Packet.DataType.COLOR:
+      ll("COLOR packet");
+      ensureReceivingFrame();
+      if (p.color != null) {
+        let c = p.color;
+        let colorData = {
+          type: "Color",
+          color: c.color,
+          width: c.width,
+          height: c.height,
+          layerRef: {low: c.layerref.getLowBitsUnsigned(),
+                     high: c.layerref.getHighBitsUnsigned()}
+        };
+        receivingFrame.colors.push(colorData);
+      }
+      break;
 
-      default:
-        console.log("error: unknown packet type");
-    }
-  } catch (e) {
-    console.log("decode error");
+    case Packet.DataType.TEXTURE:
+      ll("TEXTURE Packet");
+      ensureReceivingFrame();
+      if (p.texture != null) {
+        let t = p.texture;
+        let texData = {
+          name: t.name,
+          width: t.width,
+          height: t.height,
+          stride: t.stride,
+          target: t.target,
+          dataFormat: t.dataformat,
+          layerRef: {low: t.layerref.getLowBitsUnsigned(),
+                     high: t.layerref.getHighBitsUnsigned()},
+          contextRef: t.glcontext
+        };
+        let buf = t.data.toArrayBuffer();
+        texData.imageData = createImage(buf, texData);
+        receivingFrame.textures.push(texData);
+      }
+      break;
+
+    case Packet.DataType.LAYERS:
+      ll("Layer Tree (Layers Dump)");
+      ensureReceivingFrame();
+      if (p.layers != null) {
+        let l = p.layers;
+        let layerTree = [createLayerNode(layer) for (layer of l.layer)];
+        receivingFrame.layers = JSON.stringify(constructTree(layerTree));
+      }
+      break;
+
+    default:
+      console.log("Error: Unsupported packet type. Please update this viewer.");
   }
 }
 
@@ -442,7 +742,6 @@ function onSocketMessage(ev) {
 };
 
 $(function() {
-
   $("#bkgselect").change(function() {
     var val = $(this).val().toLowerCase();
     if (val != frameBackground) {

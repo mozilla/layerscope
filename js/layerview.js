@@ -26,7 +26,7 @@ const gLayerNameMap = [
   "UnknownLayer",
   "LayerManager",
   "ContainerLayer",
-  "ThebesLayer",
+  "PaintedLayer",
   "CanvasLayer",
   "ImageLayer",
   "ColorLayer",
@@ -334,7 +334,7 @@ function showAttributes(data) {
   }
 
   // Specific layer data
-  // Valid (ThebesLayer)
+  // Valid (PaintedLayer)
   if (!!data.valid) {
     $ul.append(showAttrWrapper.showRegion(data.valid, "Valid"));
   }

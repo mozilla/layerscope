@@ -111,13 +111,22 @@
   </head>
   <body>
     <input id="urlfield" value="ws://localhost:23456"></input><button id="connect">Connect</button> <span id="infomsg"></span><br>
-    Background: <select id="bkgselect">
-      <option selected>Pattern</option>
-      <option>White</option>
-      <option>Black</option>
-    </select>
+    <div id="replay">
+      Replay:&nbsp;
+      <button id="saveFrame">Save Frame</button>
+      <input type="file" id="files" name="files[]" />
+    </div>
+    <div>
+      Background:&nbsp;
+      <select id="bkgselect">
+        <option selected>Pattern</option>
+        <option>White</option>
+        <option>Black</option>
+      </select>
+    </div>
     <div id="info"></div>
     <div id="frameslider"></div>
+    <div id="error-log" class="info-error"></div>
     <div>
       <h3>Layer Tree:</h3>
       <table id="layertree-table">

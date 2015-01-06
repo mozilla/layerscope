@@ -51,6 +51,7 @@ const gFilterMap = [
  */
 var lines = 0;
 function ll(s) {
+  // For debugging
   //console.log(s);
   return;
 
@@ -156,17 +157,18 @@ function clearFrames() {
 
 /**
  * Check receivingFrame, or initialize it
- * @param {Long} value Address
+ * @param {Object} stamp stamp object {low: ..., high: ...},
+ *                       both fields are unsigned numbers
  */
-function ensureReceivingFrame(value) {
+function ensureReceivingFrame(stamp) {
   if (receivingFrame)
     return;
 
   receivingFrame = {
-    id: value || 0,
+    id: stamp || {low: 0, high: 0},
     textures: [],
     colors: [],
-    layers: "" // JSON string
+    layers: []
   };
 }
 
@@ -180,17 +182,10 @@ function updateInfo(findex) {
   if (frames.length == 0) {
     $("#info").html("<span>No frames.</span>");
   } else if (findex >= frames.length) {
-    console.log("error: Frame index is out of range");
+    console.log("Error: Frame index is out of range");
   } else {
-    var stamp = frames[findex].id;
-    var time = "";
-    if (!!frames[findex].id) {
-      time = hex16(stamp.getHighBitsUnsigned(), stamp.getLowBitsUnsigned());
-    } else {
-      // Special case, I should figure out why PR_Now() gave me 0.....
-      time = hex16(0, 0);
-    }
-    $("#info").html("<span>Frame " + findex + "/" + (frames.length-1) + " &mdash; stamp: " + time + "</span>");
+    var stamp = hex16(frames[findex].id.high, frames[findex].id.low);
+    $("#info").html("<span>Frame " + findex + "/" + (frames.length-1) + " &mdash; stamp: " + stamp + "</span>");
   }
 }
 
@@ -215,6 +210,59 @@ function processFrame(frame) {
   } else {
     updateInfo();
   }
+}
+
+/**
+ * Convert image data to data URL
+ * @param {object} frameData
+ */
+function convertImageDataToDataURL(frameData) {
+  var canvasToSave = $("<canvas>")[0];
+  var canvasToSaveCx = canvasToSave.getContext("2d");
+  for (var i = 0; i < frameData.length; ++i) {
+    var frame = frameData[i];
+    for (var j = 0; j < frame.textures.length; ++j) {
+      var t = frame.textures[j];
+      if (t.imageData) {
+        canvasToSave.width = t.width;
+        canvasToSave.height = t.height;
+        canvasToSaveCx.putImageData(t.imageData, 0, 0);
+        t.imageDataURL = canvasToSave.toDataURL();
+      }
+    }
+  }
+}
+
+/**
+ * Convert frames to JSON
+ * @param {object} frameData
+ */
+function convertFramesToJSON(frameData) {
+  convertImageDataToDataURL(frameData);
+  function replacer(key, value) {
+    if (key == "imageData") return undefined;
+    else return value;
+  }
+  return JSON.stringify(frameData, replacer);
+}
+
+/**
+ * Load images to canvas
+ * @param {object} texture
+ */
+function loadImageToCanvas(texture, cx) {
+  // convert from base64 to raw image buffer
+  var img = $("<img>", { src: texture.imageDataURL });
+  var loadingCanvas = $("<canvas>")[0];
+  loadingCanvas.width = texture.width;
+  loadingCanvas.height = texture.height;
+  let context = loadingCanvas.getContext("2d");
+  let temp = texture;
+  img.load(function() {
+    context.drawImage(this, 0, 0);
+    temp.imageData = context.getImageData(0, 0, temp.width, temp.height);
+    cx.putImageData(temp.imageData, 0, 0);
+  });
 }
 
 /**
@@ -386,9 +434,9 @@ function highlight() {
 
 /**
  * Dump layer tree
- * @param {string} jsonTxt Frame tree data
+ * @param {object} layerTree layer tree data
  */
-function dumpLayerTree(jsonTxt) {
+function dumpLayerTree(tree) {
   // DFS print
   var dfs = function(node) {
     var $span = $("<span>");
@@ -422,11 +470,10 @@ function dumpLayerTree(jsonTxt) {
     return $("<ul>").append($li);
   };
 
-  if (!jsonTxt) {
+  if (!tree) {
     return;
   }
 
-  var tree = JSON.parse(jsonTxt);
   var $d = $("<div>");
   for (let t of tree) {
     $d.append(dfs(t));
@@ -455,12 +502,33 @@ function dumpLayerScope(frame) {
         d.append($("<p>Layer " + hex8(t.layerRef.low) + "</p>").addClass("texture-misc-info"));
       }
 
-      if (t.imageData) {
+      if (t.imageData || t.imageDataURL) {
         let cs = $("<canvas>").addClass("texture-canvas").addClass("background-" + frameBackground)[0];
         cs.width = t.width;
         cs.height = t.height;
         let cx = cs.getContext("2d");
-        cx.putImageData(t.imageData, 0, 0);
+
+        if (t.imageData) {
+          // From realtime connection
+          cx.putImageData(t.imageData, 0, 0);
+        } else {
+          // From files
+          // Note: Image store in png file, acquire addon to load it
+          if (t.imageDataURL.substring(0, 21) != "data:image/png;base64") {
+            // Addon is created by our content script (Layerscope addon)
+            // which would also export this function, readImageFromFile.
+            if (typeof Addon != "undefined" && typeof Addon.readImageFromFile != "undefined") {
+              Addon.readImageFromFile(t, cx);
+            } else {
+              let $log = $("#error-log").empty();
+              $log.append("<p>Loading images failed.<br>\
+                          If you are using layerscope addon, please make sure its version is correct.<br>\
+                          If not, please make sure the format of this JSON file is correct.</p>");
+            }
+          } else {
+            loadImageToCanvas(t, cx);
+          }
+        }
         d.append(cs);
       }
       $panel.append(d);
@@ -525,7 +593,7 @@ function createImage(data, texData) {
       let dstData = new Uint8Array(texData.stride * texData.height);
       let rv = LZ4_uncompressChunk(srcData, dstData);
       if (rv < 0)
-        console.log("uncompression error at: ", rv);
+        console.log("Error: uncompression error at: ", rv);
       srcData = dstData;
     }
 
@@ -663,7 +731,8 @@ function processData(buffer) {
         receivingFrame = null;
       }
       if (p.frame != null) {
-        ensureReceivingFrame(p.frame.value);
+        ensureReceivingFrame({low: p.frame.value.getLowBitsUnsigned(),
+                              high: p.frame.value.getHighBitsUnsigned()});
       }
       break;
 
@@ -718,7 +787,7 @@ function processData(buffer) {
       if (p.layers != null) {
         let l = p.layers;
         let layerTree = [createLayerNode(layer) for (layer of l.layer)];
-        receivingFrame.layers = JSON.stringify(constructTree(layerTree));
+        receivingFrame.layers = constructTree(layerTree);
       }
       break;
 
@@ -740,6 +809,21 @@ function onSocketMessage(ev) {
 
   ll("finished processing, offset now: " + bytebuf.offset + ", buffer limit: " + bytebuf.limit);
 };
+
+/**
+ * Assign new frames (reset frames) from the loading file
+ * @param {object} newFrames frames
+ */
+function assignNewFrames(newFrames) {
+  // Reset and set new frames
+  clearFrames();
+  frames = newFrames;
+  $("#error-log").empty();
+  $("#frameslider").slider("option", "max", frames.length-1);
+
+  // Display the new first frame
+  displayFrame(0);
+}
 
 $(function() {
   $("#bkgselect").change(function() {
@@ -797,6 +881,36 @@ $(function() {
     }
   });
 
+  $("#saveFrame").click(function() {
+    var json = convertFramesToJSON(frames);
+    var blob = new Blob([json], {type: "application/json"});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.download = "backup.json";
+    a.href = url;
+    a.textContent = "Download backup.json";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  });
+
+  function handleFileSelect(evt) {
+    var files = evt.target.files; // FileList object
+    var f = files[0];
+    var reader = new FileReader();
+    // Closure to capture the file information.
+    reader.onload = (function (theFile) {
+      return function (e) {
+        // Render thumbnail.
+        var JsonObj = e.target.result;
+        assignNewFrames(JSON.parse(JsonObj));
+      };
+    })(f);
+    // Read in JSON as a data URL.
+    reader.readAsText(f);
+  }
+  document.getElementById('files').addEventListener('change', handleFileSelect, false);
+
   updateInfo();
 
   if ('RecordedData' in window) {
@@ -809,5 +923,4 @@ $(function() {
     };
     setTimeout(sendOneChunk, 0);
   }
-
 });

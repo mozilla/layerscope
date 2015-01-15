@@ -1,3 +1,6 @@
+/* -*- tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
+/* vim:set ts=2 sw=2 sts=2 et: */
+
 // GL Texture name
 const GL_TEXTURE_2D = 0x0DE1;
 const GL_TEXTURE_EXTERNAL = 0x8D65;
@@ -166,6 +169,7 @@ function ensureReceivingFrame(stamp) {
 
   receivingFrame = {
     id: stamp || {low: 0, high: 0},
+    meta: {composedByHwc: false},
     textures: [],
     colors: [],
     layers: []
@@ -183,6 +187,8 @@ function updateInfo(findex) {
     $("#info").html("<span>No frames.</span>");
   } else if (findex >= frames.length) {
     console.log("Error: Frame index is out of range");
+  } else if (!frames[findex]){
+    console.log("Error: frames[" + findex + "] is null");
   } else {
     var stamp = hex16(frames[findex].id.high, frames[findex].id.low);
     $("#info").html("<span>Frame " + findex + "/" + (frames.length-1) + " &mdash; stamp: " + stamp + "</span>");
@@ -486,10 +492,19 @@ function dumpLayerTree(tree) {
 }
 
 /**
- * Dump layer scope
+ * Dump layer buffer
  * @param {object} frame The specific frame data which contains texture or color layers
  */
-function dumpLayerScope(frame) {
+function dumpLayerBuffer(frame) {
+  // Dump compsition method
+  var dumpCompositionWay = function(hwcomposed, $panel) {
+    if (hwcomposed) {
+      var $d = $("<div>");
+      $d.append("<p>[Hardware composition]</p>");
+      $panel.append($d);
+    }
+  }
+  // Dump Texture layers
   var dumpTextureLayer = function(frame, $panel) {
     for (let t of frame.textures) {
       let d = $("<div>").addClass("texture-pane").addClass(t.layerRef.low.toString());
@@ -534,6 +549,7 @@ function dumpLayerScope(frame) {
       $panel.append(d);
     }
   };
+  // Dump Color layers
   var dumpColorLayer = function(frame, $panel) {
     for (let l of frame.colors) {
       let d = $("<div>").addClass("layer-pane").addClass(l.layerRef.low.toString());
@@ -553,6 +569,7 @@ function dumpLayerScope(frame) {
   };
 
   $("#framedisplay").empty();
+  dumpCompositionWay(frame.meta.composedByHwc, $('#framedisplay'));
   dumpTextureLayer(frame, $('#framedisplay'));
   dumpColorLayer(frame, $('#framedisplay'));
 }
@@ -571,7 +588,7 @@ function displayFrame(frameIndex) {
   var frame = frames[frameIndex];
 
   dumpLayerTree(frame.layers);
-  dumpLayerScope(frame);
+  dumpLayerBuffer(frame);
 }
 
 /**
@@ -730,7 +747,7 @@ function processData(buffer) {
         processFrame(receivingFrame);
         receivingFrame = null;
       }
-      if (p.frame != null) {
+      if (p.frame) {
         ensureReceivingFrame({low: p.frame.value.getLowBitsUnsigned(),
                               high: p.frame.value.getHighBitsUnsigned()});
       }
@@ -745,7 +762,7 @@ function processData(buffer) {
     case Packet.DataType.COLOR:
       ll("COLOR packet");
       ensureReceivingFrame();
-      if (p.color != null) {
+      if (p.color) {
         let c = p.color;
         let colorData = {
           type: "Color",
@@ -762,7 +779,7 @@ function processData(buffer) {
     case Packet.DataType.TEXTURE:
       ll("TEXTURE Packet");
       ensureReceivingFrame();
-      if (p.texture != null) {
+      if (p.texture) {
         let t = p.texture;
         let texData = {
           name: t.name,
@@ -784,13 +801,23 @@ function processData(buffer) {
     case Packet.DataType.LAYERS:
       ll("Layer Tree (Layers Dump)");
       ensureReceivingFrame();
-      if (p.layers != null) {
+      if (p.layers) {
         let l = p.layers;
         let layerTree = [createLayerNode(layer) for (layer of l.layer)];
         receivingFrame.layers = constructTree(layerTree);
       }
       break;
 
+    case Packet.DataType.META:
+      ll("META data");
+      ensureReceivingFrame();
+      if (p.meta) {
+        let m = p.meta;
+        if (typeof p.meta.composedByHwc != "undefined") {
+          receivingFrame.meta.composedByHwc = p.meta.composedByHwc;
+        }
+      }
+      break;
     default:
       console.log("Error: Unsupported packet type. Please update this viewer.");
   }

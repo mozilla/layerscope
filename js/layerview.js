@@ -18,7 +18,7 @@ var receivingFrame = null;
 var gCanvasCx;
 
 // Protocol buffer variable
-var builder = dcodeIO.ProtoBuf.loadProtoFile("js/protobuf/LayerScopePacket.proto");
+var builder = dcodeIO.ProtoBuf.loadProtoFile("lib/protobuf/LayerScopePacket.proto");
 var Packet = builder.build("mozilla.layers.layerscope.Packet");
 
 // Layer Type Map

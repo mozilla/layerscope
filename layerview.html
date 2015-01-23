@@ -4,15 +4,20 @@
     <meta charset="utf-8">
 
     <link href="css/smoothness/jquery-ui-1.9.2.custom.css" rel="stylesheet">
-    <script src="js/jquery-1.8.3.js"></script>
-    <script src="js/jquery-ui-1.9.2.custom.js"></script>
-
-    <script src="js/lz4-decompress.js"></script>
-    <script src="js/sha1.js"></script>
-    <script src="js/protobuf/Long.js"></script>
-    <script src="js/protobuf/ByteBufferAB.js"></script>
-    <script src="js/protobuf/ProtoBuf.js"></script>
+    <!-- jquery libs -->
+    <script src="lib/jquery-1.8.3.js"></script>
+    <script src="lib/jquery-ui-1.9.2.custom.js"></script>
+    <!-- helper libs -->
+    <script src="lib/lz4-decompress.js"></script>
+    <script src="lib/sha1.js"></script>
+    <script src="lib/protobuf/Long.js"></script>
+    <script src="lib/protobuf/ByteBufferAB.js"></script>
+    <script src="lib/protobuf/ProtoBuf.js"></script>
+    <!-- layerview -->
+    <script type="application/javascript;version=1.8" src="js/common.js"></script>
     <script type="application/javascript;version=1.8" src="js/layerview.js"></script>
+    <script type="application/javascript;version=1.8" src="js/renderers.js"></script>
+    <script type="application/javascript;version=1.8" src="js/dataprocesser.js"></script>
 
     <style type="text/css">
       body {
@@ -113,8 +118,8 @@
     <input id="urlfield" value="ws://localhost:23456"></input><button id="connect">Connect</button> <span id="infomsg"></span><br>
     <div id="replay">
       Replay:&nbsp;
-      <button id="saveFrame">Save Frame</button>
-      <input type="file" id="files" name="files[]" />
+      <button id="saveToFileBtn">Save Frame</button>
+      <input type="file" id="loadFromFileBtn" name="files[]" />
     </div>
     <div>
       Background:&nbsp;

@@ -8,6 +8,8 @@ if (typeof LayerScope == "undefined" || !LayerScope) {
   LayerScope = {};
 }
 
+LayerScope.NO_FRAMES = "No frames"
+
 LayerScope.Config = {
   background: "pattern",
 };
@@ -77,7 +79,6 @@ LayerScope.ConnectionManager.prototype = {
 
     // Update UI
     $("#connect").text("Connect");
-    $("#infomsg").empty();
   },
 
   connect: function CM_connect(url) {
@@ -135,6 +136,62 @@ LayerScope.ConnectionManager.prototype = {
   },
 };
 
+LayerScope.FrameController = {
+  _slider: 0,
+  _info: 0,
+
+  attach: function FC_attach(slider, info) {
+    this._slider = slider;
+    this._info = info;
+
+    slider.slider({
+      value: 0,
+      min: 0,
+      max: 0,
+      step: 1,
+      slide: function(evt, ui) {
+        LayerScope.Session.display(ui.value);
+      }
+    });
+
+    this._info.html("<span>" + LayerScope.NO_FRAMES + "</span>");
+  },
+
+  update: function FC_update(selectedFrame, totalFrames, frameId) {
+    let max = totalFrames !== undefined ? totalFrames : this._slider.slider("option", "max");
+    var min = this._slider.slider("option", "min");
+
+    // Validate arguments.
+    console.assert(selectedFrame <= max && selectedFrame >= min ,
+                   "FrameContoller.update: Invalid frame index");
+    if (selectedFrame > max || selectedFrame < min) {
+      return;
+    }
+
+    // Update this._slider
+    if (totalFrames !== undefined) {
+      this._slider.slider("option", "max", totalFrames);
+    }
+    if (selectedFrame !== undefined) {
+      this._slider.slider("option", "value", selectedFrame);
+    }
+
+    //  Update this._info
+    if (totalFrames == 0) {
+      this._info.html("<span>" + LayerScope.NO_FRAMES + "</span>");
+    } else {
+      if (frameId != undefined) {
+        this._info.html("<span>Frame " + selectedFrame + "/" +
+                        max + " &mdash; stamp: " +
+                        frameId + "</span>");
+      } else {
+        this._info.html("<span>Frame " + selectedFrame + "/" +
+                        max + "</span>");
+      }
+    }
+  }
+};
+
 LayerScope.Session = {
   _frames: [],
   _currentFrame: 0,
@@ -157,8 +214,6 @@ LayerScope.Session = {
     LayerScope.RendererNode.begin();
 
     $("#error-log").empty();
-    $("#frameslider").slider("value", 0);
-    $("#frameslider").slider("option", "min", 0);
 
     // If frames is defined, that means we start a offline session.
     // Display the first frame by default.
@@ -166,11 +221,11 @@ LayerScope.Session = {
       // Offline session.
       this._frames = frames;
       this.display(0);
-      $("#frameslider").slider("option", "max", this._frames.length - 1);
+      max = this._frames.length > 0 ? (this._frames.length - 1) : 0;
+      LayerScope.FrameController.update(0, max);
     } else {
       // Online session.
-      this._updateInfo();
-      $("#frameslider").slider("option", "max", 0);
+      LayerScope.FrameController.update(0, 0);
     }
   },
 
@@ -237,12 +292,10 @@ LayerScope.Session = {
 
     this._frames.push(frame);
 
-    $("#frameslider").slider("option", "max", this._frames.length - 1);
     if (advance) {
-      $("#frameslider").slider("value", this._frames.length - 1);
       this.display(this._frames.length - 1);
     } else {
-      this._updateInfo();
+      LayerScope.FrameController.update(this._currentFrame, this._frames.length - 1);
     }
   },
 
@@ -250,7 +303,6 @@ LayerScope.Session = {
     if (frameIndex === undefined) {
       // Force render current frame again.
       frameIndex = this._currentFrame;
-      render = true;
     } else {
       console.assert(frameIndex < this._frames.length,
                      "LayerScope.Session.display: Invalid frame index");
@@ -259,7 +311,7 @@ LayerScope.Session = {
       }
 
       this._currentFrame = frameIndex;
-      this._updateInfo();
+      LayerScope.FrameController.update(frameIndex, this._frames.length - 1);
     }
 
     LayerScope.RendererNode.input(this._frames[frameIndex]);
@@ -267,23 +319,6 @@ LayerScope.Session = {
 
   process: function SS_process(bytes) {
     LayerScope.DataProcesserNode.input(bytes);
-  },
-
-  /**
-  * Update the specific frame
-  * @param {number} frameIndex Frame index
-  */
-  _updateInfo: function SS_updateInfo() {
-    if (this._frames.length == 0) {
-      $("#info").html("<span>No frames.</span>");
-    } else {
-      var currentFrame = this._frames[this._currentFrame];
-      var stamp = LayerScope.utils.hex16(currentFrame.id.high,
-                                         currentFrame.id.low);
-      $("#info").html("<span>Frame " + this._currentFrame + "/" +
-                      (this._frames.length - 1) + " &mdash; stamp: " +
-                      stamp + "</span>");
-    }
   },
 };
 
@@ -309,16 +344,6 @@ $(function() {
     }
   });
 
-  $("#frameslider").slider({
-    value: 0,
-    min: 0,
-    max: 0,
-    step: 1,
-    slide: function(event, ui) {
-      var frame = ui.value;
-      LayerScope.Session.display(ui.value);
-    }
-  });
 
   $("#saveToFileBtn").click(function() {
     LayerScope.Session.dump()
@@ -336,4 +361,6 @@ $(function() {
     var file = evt.target.files[0];
     reader.readAsText(file);
   });
+
+  LayerScope.FrameController.attach($("#frameslider"), $("#info"));
 });

@@ -14,7 +14,10 @@
     <script src="lib/protobuf/ByteBufferAB.js"></script>
     <script src="lib/protobuf/ProtoBuf.js"></script>
     <!-- layerview -->
+    <script type="application/javascript;version=1.8" src="js/common.js"></script>
     <script type="application/javascript;version=1.8" src="js/layerview.js"></script>
+    <script type="application/javascript;version=1.8" src="js/renderers.js"></script>
+    <script type="application/javascript;version=1.8" src="js/dataprocesser.js"></script>
 
     <style type="text/css">
       body {
@@ -116,7 +119,7 @@
     <div id="replay">
       Replay:&nbsp;
       <button id="saveFrame">Save Frame</button>
-      <input type="file" id="files" name="files[]" />
+      <input type="file" id="loadFromFileBtn" name="files[]" />
     </div>
     <div>
       Background:&nbsp;
@@ -139,7 +142,7 @@
       </table>
     </div>
     <div>
-      <h3>Layer Buffer:</h3>
+      <h3>Layer Scope:</h3>
       <div id="framedisplay"></div>
     </div>
     <div id="log"></div>

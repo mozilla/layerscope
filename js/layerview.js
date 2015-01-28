@@ -51,7 +51,7 @@ LayerScope.Node.prototype = {
 };
 
 /**
- * A ConnectionManager instance takes responsibility of 
+ * A ConnectionManager instance takes responsibility of
  * 1. Creating a connection with profile target.
  * 2. Detectting conntection broken
  * 3. Receiving packetes from the target.
@@ -63,7 +63,7 @@ LayerScope.ConnectionManager = function(graph) {
 
 LayerScope.ConnectionManager.prototype = {
   constructor: LayerScope.ConnectionManager,
-  isConnected: function CH_isConnected() {
+  isConnected: function CM_isConnected() {
     return this._socket;
   },
 
@@ -78,6 +78,7 @@ LayerScope.ConnectionManager.prototype = {
     this._socket = null;
 
     // Update UI
+    $("#infomsg").empty();
     $("#connect").text("Connect");
   },
 
@@ -122,10 +123,20 @@ LayerScope.ConnectionManager.prototype = {
   },
 
   /**
+   * Send socket message
+   * @param {ArrayBuffer} buffer The message buffer
+   */
+  sendMessage: function CM_sendMessage(buffer) {
+    if (this._socket) {
+      this._socket.send(buffer);
+    }
+  },
+
+  /**
    * Parse URL
    * @param {string} url The url string
    * @return {object} The url object
-  */
+   */
   _parseURL: function CM_parseURL(url) {
     var a =  document.createElement('a');
     a.href = url;
@@ -209,10 +220,63 @@ LayerScope.FrameController = {
   }
 };
 
+
+/**
+ * Command handler, generate protcol buffer packets and send
+ * to the WebSocket server
+ */
+LayerScope.CommandHandler = {
+  _cmdPacket: null,
+  _currCheckers: [],
+
+  get cmdPacket() {
+    if (!this._cmdPacket) {
+      var builder = LayerScope.Session.pbbuilder;
+      this._cmdPacket = builder.build("mozilla.layers.layerscope.CommandPacket");
+    }
+    return this._cmdPacket;
+  },
+
+  /**
+   * Attach the command event to the checkbox
+   * @param {string} cmd command string
+   * @param {jQuery Selector} check the checkbox selector
+   */
+  attach: function CH_attach(cmd, check) {
+    this._currCheckers.push({cmd: cmd,
+                             selector: check});
+    check.change(function() {
+      LayerScope.CommandHandler.sendCommand(cmd, $(this).is(":checked"));
+    });
+  },
+
+  /**
+   * Synchronize checkers' statuses between servers and clients
+   */
+  syncStatus: function CH_syncStatus() {
+    for (c of this._currCheckers) {
+      let status = c.selector.is(":checked");
+      this.sendCommand(c.cmd, status);
+    }
+  },
+
+  /**
+   * Handle command sending
+   * @param {string} cmd command string
+   * @param {boolean} value the boolean value for this cmd
+   */
+  sendCommand: function CH_sendCommand(cmd, value) {
+    var p = new LayerScope.CommandHandler.cmdPacket(cmd, value);
+    LayerScope.Session.connectionManager.sendMessage(p.encodeAB());
+  },
+};
+
+
 LayerScope.Session = {
   _frames: [],
   _currentFrame: 0,
   _connectionManager: null,
+  _pbufbuilder: null, // protocol buffer builder
 
   get connectionManager() {
     // Create connection manager on demand.
@@ -231,6 +295,10 @@ LayerScope.Session = {
     LayerScope.RendererNode.begin();
 
     $("#error-log").empty();
+
+    // We should make sure that checkers' statuses are the same as
+    // those on server side
+    LayerScope.CommandHandler.syncStatus();
 
     // If frames is defined, that means we start a offline session.
     // Display the first frame by default.
@@ -258,6 +326,13 @@ LayerScope.Session = {
     // Make sure data URL generated.
     this._genDataURL();
     return this._frames;
+  },
+
+  get pbbuilder() {
+    if (!this._pbufbuilder) {
+      this._pbufbuilder = dcodeIO.ProtoBuf.loadProtoFile("js/protobuf/LayerScopePacket.proto");
+    }
+    return this._pbufbuilder;
   },
 
   /**
@@ -309,7 +384,7 @@ LayerScope.Session = {
   },
 
   appendFrame: function SS_appendFrame(frame) {
-    let advance = false;
+    let advance = true;
     //if ((this._currentFrame == (this._frames.length - 1)) ||
     //    (this._currentFrame == 0 && this._frames.length == 0)) {
     //  advance = true;
@@ -350,6 +425,7 @@ LayerScope.Session = {
 LayerScope.DataProcesserNode = new LayerScope.Node(LayerScope.Session);
 LayerScope.RendererNode = new LayerScope.Node(LayerScope.Session);
 
+
 $(function() {
   $("#bkgselect").change(function() {
     var val = $(this).val().toLowerCase();
@@ -369,7 +445,6 @@ $(function() {
     }
   });
 
-
   $("#saveFrame").click(function() {
     LayerScope.Session.dump()
   });
@@ -388,4 +463,6 @@ $(function() {
   });
 
   LayerScope.FrameController.attach($("#frameslider"), $("#info"));
+  LayerScope.CommandHandler.attach("LAYERS_TREE", $("#checktree"));
+  LayerScope.CommandHandler.attach("LAYERS_BUFFER", $("#checkbuffer"));
 });

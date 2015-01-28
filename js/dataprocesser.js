@@ -21,7 +21,7 @@ LayerScope.ProtoDataProcesser = {
     if (this._packet !== null)
       return
 
-    var builder = dcodeIO.ProtoBuf.loadProtoFile("js/LayerScopePacket.proto");
+    var builder = this._graph.pbbuilder;
     this._packet = builder.build("mozilla.layers.layerscope.Packet");
   },
 

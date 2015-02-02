@@ -101,6 +101,10 @@ LayerScope.ConnectionManager.prototype = {
         this._graph.begin();
       }.bind(this);
 
+      this._socket.onclose = function(ev) {
+        this.disconnect();
+      }.bind(this);
+
       this._socket.onmessage = this.onMessage.bind(this);
     } else {
       alert("protocol " + urlinfo.protocol + " not implemented");

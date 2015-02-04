@@ -33,6 +33,13 @@ LayerScope.Node.prototype = {
     this._registedObjs.push(obj);
   },
 
+  init: function N_init() {
+    this._registedObjs.forEach(
+      function (element, index, array) {
+        if (element['init'])
+          element.init(this._graph);
+      }.bind(this))
+  },
   begin: function N_begin() {
     this._registedObjs.forEach(
       function (element, index, array) {
@@ -78,24 +85,31 @@ LayerScope.ConnectionManager.prototype = {
     this._socket = null;
 
     // Update UI
-    $("#infomsg").empty();
-    $("#connect").text("Connect");
+    $("#connection-btn").button("option", "label", "Connect");
+    $("#connection-btn").removeClass("button-danger-color");
   },
 
   connect: function CM_connect(url) {
     var urlinfo = this._parseURL(url);
-    if (urlinfo.protocol.toLowerCase() == "ws") {
+    if (!urlinfo) {
+      alert("Invalid URL");
+    } else if (urlinfo.protocol != "ws") {
+      alert("protocol " + urlinfo.protocol + " not implemented");
+    } else {
       this._socket = new WebSocket(url, 'binary');
       this._socket.binaryType = "arraybuffer";
 
       this._socket.onerror = function(ev) {
-        $("#infomsg").attr("class", "info-error").html("Connection failed.");
-        this._socket = null;
+        // Do this check to prevent onerror callback after onclose.
+        if (!!this._socket) {
+          $("#connection-dialog").dialog({ modal: true });
+        }
       }.bind(this);
 
       this._socket.onopen = function(ev) {
-        $("#infomsg").attr("class", "info-ok").html("Connected.");
-        $("#connect").text("Disconnect");
+        $("#connection-btn").button("option", "label", "Disconnect");
+        $("#connection-btn").addClass("button-danger-color");
+        $("#save-btn").button({ "disabled" : false });
 
         // Start a session.
         this._graph.begin();
@@ -106,8 +120,6 @@ LayerScope.ConnectionManager.prototype = {
       }.bind(this);
 
       this._socket.onmessage = this.onMessage.bind(this);
-    } else {
-      alert("protocol " + urlinfo.protocol + " not implemented");
     }
   },
 
@@ -142,31 +154,33 @@ LayerScope.ConnectionManager.prototype = {
    * @return {object} The url object
    */
   _parseURL: function CM_parseURL(url) {
-    var a =  document.createElement('a');
-    a.href = url;
+    var result =  url.match(/(\w+):\/\/([\w.]+):([0-9]+$)/i);
+    if (!result) {
+      return null;
+    }
     return {
-      protocol: a.protocol.replace(':',''),
-      port: a.port
+      protocol: result[1].toLowerCase(),
+      port: result[3]
     };
   },
 };
 
 LayerScope.FrameController = {
-  _slider: 0,
-  _info: 0,
+  _$slider: 0,
+  _$info: 0,
 
-  attach: function FC_attach(slider, info) {
-    this._slider = slider;
-    this._info = info;
+  attach: function FC_attach($slider, $info) {
+    this._$slider = $slider;
+    this._$info = $info;
 
-    slider.slider({
+    $slider.slider({
       value: 0,
       min: 0,
       max: 0,
       step: 1,
       slide: function(evt, ui) {
         // Don't kick off render while sliding, it makes whole page sluggish.
-        max = this._slider.slider("option", "max");
+        max = this._$slider.slider("option", "max");
         this._updateInfo(ui.value, max);
       }.bind(this),
       stop: function (event, ui) {
@@ -174,7 +188,7 @@ LayerScope.FrameController = {
       }
     });
 
-    this._info.html("<span>" + LayerScope.NO_FRAMES + "</span>");
+    this._$info.html("<span>" + LayerScope.NO_FRAMES + "</span>");
   },
 
   /*
@@ -183,12 +197,12 @@ LayerScope.FrameController = {
   update: function FC_update(selectedFrame, totalFrames, frameId) {
     var max = 0;
     if (totalFrames === undefined) {
-      max = this._slider.slider("option", "max");
+      max = this._$slider.slider("option", "max");
     } else {
       max = (totalFrames > 0) ? (totalFrames - 1) : 0;
     }
 
-    var min = this._slider.slider("option", "min");
+    var min = this._$slider.slider("option", "min");
 
     // Validate arguments.
     console.assert(selectedFrame <= max && selectedFrame >= min ,
@@ -197,27 +211,30 @@ LayerScope.FrameController = {
       return;
     }
 
-    // Update this._slider
+    this._$slider.css('visibility', 'visible');
+    this._$info.css('visibility', 'visible');
+
+    // Update this._$slider
     if (totalFrames !== undefined) {
-      this._slider.slider("option", "max", max);
+      this._$slider.slider("option", "max", max);
     }
     if (selectedFrame !== undefined) {
-      this._slider.slider("option", "value", selectedFrame);
+      this._$slider.slider("option", "value", selectedFrame);
     }
 
-    //  Update this._info
+    //  Update this._$info
     this._updateInfo(selectedFrame, max, frameId);
   },
   _updateInfo: function FC_updateInfo(selectedFrame, totalFrames, frameId) {
     if (totalFrames === 0) {
-      this._info.html("<span>" + LayerScope.NO_FRAMES + "</span>");
+      this._$info.html("<span>" + LayerScope.NO_FRAMES + "</span>");
     } else {
       if (frameId != undefined) {
-        this._info.html("<span>Frame " + selectedFrame + "/" +
+        this._$info.html("<span>Frame " + selectedFrame + "/" +
                         totalFrames + " &mdash; stamp: " +
                         frameId + "</span>");
       } else {
-        this._info.html("<span>Frame " + selectedFrame + "/" +
+        this._$info.html("<span>Frame " + selectedFrame + "/" +
                         totalFrames + "</span>");
       }
     }
@@ -278,7 +295,7 @@ LayerScope.CommandHandler = {
 
 LayerScope.Session = {
   _frames: [],
-  _currentFrame: 0,
+  _currentFrame: -1,
   _connectionManager: null,
   _pbufbuilder: null, // protocol buffer builder
 
@@ -289,6 +306,15 @@ LayerScope.Session = {
     }
 
     return this._connectionManager;
+  },
+
+  init: function SS_init() {
+    LayerScope.FrameController.attach($("#frame-slider"), $("#frame-info"));
+    LayerScope.CommandHandler.attach("LAYERS_TREE", $("#checktree"));
+    LayerScope.CommandHandler.attach("LAYERS_BUFFER", $("#checkbuffer"));
+
+    LayerScope.DataProcesserNode.init();
+    LayerScope.RendererNode.init();
   },
 
   // Start a session.
@@ -322,8 +348,12 @@ LayerScope.Session = {
     LayerScope.RendererNode.end();
     LayerScope.DataProcesserNode.end();
 
-    this._currentFrame = 0;
+    this._currentFrame = -1;
     this._frames = []
+  },
+
+  get frame() {
+    return this._frames[this._currentFrame];
   },
 
   get frames() {
@@ -388,11 +418,11 @@ LayerScope.Session = {
   },
 
   appendFrame: function SS_appendFrame(frame) {
-    let advance = true;
-    //if ((this._currentFrame == (this._frames.length - 1)) ||
-    //    (this._currentFrame == 0 && this._frames.length == 0)) {
-    //  advance = true;
-    //}
+    let advance = false;
+    if ((this._currentFrame == (this._frames.length - 1)) ||
+        (this._currentFrame == 0 && this._frames.length == 0)) {
+      advance = true;
+    }
 
     this._frames.push(frame);
 
@@ -438,27 +468,56 @@ $(function() {
       LayerScope.Session.display();
     }
   });
+  $("#url-address").addClass("ui-corner-all");
 
-  $("#connect").click(function() {
+  $("#setting-button")
+    .button({
+      icons: {primary: null},
+      text: false
+    })
+    .addClass("icon-setting")
+    .click(function(event) {
+      //$("#setting-options").toggle();
+      if ($("#setting-options").css('display') == 'none') {
+        $("#setting-options").fadeIn('1000');
+      }
+      else {
+        $("#setting-options").fadeOut('500');
+      }
+    });
+  $("#connection-btn").button()
+    .on("click", function(event) {
+      event.preventDefault();
+      let cm = LayerScope.Session.connectionManager;
+      if (cm.isConnected()) {
+        cm.disconnect();
+      } else {
+        var url = $("#url-address")[0].value;
+        cm.connect(url)
+      }
+    });
+
+  $("#save-btn").button({ "disabled": true })
+    .click(function() {
+      LayerScope.Session.dump()
+    });
+
+  $("#load-file-btn").button()
+    .on("click", function(evt) {
+      $("#load-file-input").click();
+    });
+
+  $("#load-file-input").change(function(evt) {
     let cm = LayerScope.Session.connectionManager;
     if (cm.isConnected()) {
       cm.disconnect();
-    } else {
-      var url = $("#urlfield")[0].value;
-      cm.connect(url)
     }
-  });
-
-  $("#saveFrame").click(function() {
-    LayerScope.Session.dump()
-  });
-
-  $("#loadFromFileBtn").change(function(evt) {
     var reader = new FileReader();
     reader.onload = function (e) {
       var obj = e.target.result;
       var frames = JSON.parse(obj);
 
+      $("#save-btn").button({ "disabled": false });
       LayerScope.Session.begin(frames);
     }
 
@@ -466,7 +525,50 @@ $(function() {
     reader.readAsText(file);
   });
 
-  LayerScope.FrameController.attach($("#frameslider"), $("#info"));
-  LayerScope.CommandHandler.attach("LAYERS_TREE", $("#checktree"));
-  LayerScope.CommandHandler.attach("LAYERS_BUFFER", $("#checkbuffer"));
+  $(".resizable-left").resizable(
+    {
+      autoHide: true,
+      handles: 'e',
+      resize: function(e, ui) {
+        var parent = ui.element.parent();
+        var remainingSpace = parent.width() - ui.element.outerWidth(),
+          divTwo = ui.element.next(),
+          divTwoWidth = (remainingSpace - (divTwo.outerWidth() - divTwo.width()))
+                        / parent.width() * 100 - 2;
+          divTwo.width(remainingSpace + "px");
+          divTwo.css({left: ui.element.width() + "px"});
+      },
+      stop: function(e, ui) {
+        var parent = ui.element.parent();
+        ui.element.css({
+          width: ui.element.width()/parent.width()*100+"%",
+        });
+        ui.element.next().css({
+          left: ui.element.width() + "px"
+        });
+      }
+    });
+
+  $("#tree-pane").resizable(
+    {
+      containment: "#left-data-pane",
+      autoHide: true,
+      handles: 's',
+      resize: function(e, ui) {
+        var parent = ui.element.parent();
+        var remainingSpace = parent.height() - ui.element.outerHeight(),
+          divTwo = ui.element.next(),
+          divTwoHeight = (remainingSpace - (divTwo.outerHeight() - divTwo.height()))
+                        / parent.height() * 100 - 2 + "%";
+          divTwo.height(divTwoHeight);
+      },
+      stop: function(e, ui) {
+        var parent = ui.element.parent();
+        ui.element.css({
+          height: ui.element.height()/parent.height()*100+"%",
+        });
+      }
+    });
+
+  LayerScope.Session.init();
 });

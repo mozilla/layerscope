@@ -8,8 +8,8 @@ QUnit.test("test_frameController", function(assert) {
 
   //  Setup.
   //  Create widgets for FrameController.
-  var slider = $("<div id='frameSlider'></div>");
-  var info = $("<div id='info'></div>");
+  var slider = $("<div id='frame-slider'></div>");
+  var info = $("<div id='frame-info'></div>");
   slider.appendTo("body");
   info.appendTo("body");
 
@@ -46,6 +46,6 @@ QUnit.test("test_frameController", function(assert) {
 
   // Teardown.
   // Destroy widgets.
-  $("#info").remove();
-  $("#frameSlider").remove();
+  $("#frame-info").remove();
+  $("#frame-slider").remove();
 });

@@ -8,8 +8,21 @@ QUnit.test("test_connection", function(assert) {
   cm.disconnect();
   assert.equal(cm._socket, null, "We expect cm._socket is null.")
 
-  var urlInfo = cm._parseURL("ws://localhost:1234");
+  var info = cm._parseURL("ws://localhost:1234");
+  assert.equal(info.port, 1234, "We expect port value to be 1234");
+  assert.equal(info.protocol, "ws", "We expect protocol value to be ws");
 
-  assert.equal(urlInfo.port, 1234, "We expect port value to be 1234");
-  assert.equal(urlInfo.protocol, "ws", "We expect protocol value to be ws");
+  info = cm._parseURL("http://127.0.0.1:4321");
+  assert.equal(info.port, 4321, "We expect port value to be 4321");
+  assert.equal(info.protocol, "http", "We expect protocol value to be http");
+
+  // Invalid port number.
+  info = cm._parseURL("ws://localhost:1A2B");
+  assert.ok(info === null, "We expect _parseURL returns null");
+  // Miss port number.
+  info = cm._parseURL("ws://localhost");
+  assert.ok(info === null, "We expect _parseURL returns null");
+  // Missing schema
+  info = cm._parseURL("//localhost:1234");
+  assert.ok(info === null, "We expect _parseURL returns null");
 });

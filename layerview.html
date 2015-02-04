@@ -4,16 +4,25 @@
     <meta charset="utf-8">
 
     <link href="css/smoothness/jquery-ui-1.9.2.custom.css" rel="stylesheet">
+    <link href="lib/DataTables-1.10.4/media/css/jquery.dataTables.css" rel="stylesheet">
+    <link href="lib/jstree/themes/default/style.min.css" rel="stylesheet">
+
     <!-- jquery libs -->
     <script src="lib/jquery-1.8.3.js"></script>
     <script src="lib/jquery-ui-1.9.2.custom.js"></script>
+
+    <!-- jquery plug-ins -->
+    <script src="lib/DataTables-1.10.4/media/js/jquery.dataTables.js"></script>
+    <script src="lib/jstree/jstree.min.js"></script>
+
     <!-- helper libs -->
     <script src="lib/lz4-decompress.js"></script>
     <script src="lib/sha1.js"></script>
     <script src="lib/protobuf/Long.js"></script>
     <script src="lib/protobuf/ByteBufferAB.js"></script>
     <script src="lib/protobuf/ProtoBuf.js"></script>
-    <!-- layerview -->
+
+    <!-- layerview source -->
     <script type="application/javascript;version=1.8" src="js/common.js"></script>
     <script type="application/javascript;version=1.8" src="js/layerview.js"></script>
     <script type="application/javascript;version=1.8" src="js/renderers.js"></script>
@@ -21,40 +30,46 @@
 
     <style type="text/css">
       body {
-        font-family: sans-serif;
+        overflow-y:scroll;
+        font-family: Monaco, Helvetica, Arial, sans-serif;
+        width: 100vw;
+        height: 100vh;
+        margin:0px;
+        padding:0px;
       }
 
-      .info-error { color: red; }
-      .info-ok { color: green; }
-      #urlfield { width: 250px; }
-
-      #frameslider {
-        width: 300px;
-        margin: 10px 50px 10px 50px;
+      #url-address {
+        border: 1px solid #BBBBBB;
+        background: #fff
+        border-radius: 3px;
+        height: 20px;
       }
 
-      .texture-pane,
-      .layer-pane {
+      #frame-slider {
+        /*visibility: hidden;*/
+        width: calc(100% - 10px);
+        margin: 5px 5px;
+      }
+
+      #frame-info {
+        text-align: center;
+        /*visibility: hidden;*/
+        margin-bottom: 10px;
+      }
+
+      .buffer-sprite {
+        font-size: 12px;
         padding: 5px;
         border: 1px solid gray;
         box-shadow: 3px 3px 3px gray;
         margin: 5px;
         display: inline-block;
         vertical-align: top;
-      }
-
-      .texture-pane > p,
-      .layer-pane > p {
-        margin: 0;
-      }
-
-      .texture-info,
-      .layer-info {
         font-weight: bold;
       }
 
-      .texture-misc-info,
-      .layer-misc-info {
+      .buffer-sprite > p {
+        margin: 0px;
       }
 
       .texture-canvas,
@@ -74,77 +89,258 @@
         background: black;
       }
 
-      #layertree-table {
-        width: 100%;
-      }
-
-      #layertree-tree {
-        width: 60%;
-        vertical-align: top;
-      }
-
-      #layertree-attr {
-        vertical-align: top;
-      }
-
       .nonwrap{
         white-space: nowrap;
       }
 
-      .layerattr-table {
-        width: 400px;
-        border: 1px dotted black;
+      .highlight-pane {
+        box-shadow: 3px 3px 3px red;
+        border: 1px solid red;
       }
 
-      .layerattr-title {
-        background: AliceBlue;
-        text-align: center;
+      #left-hud-pane {
+        position: absolute;
+        left:0px;
+        top: 0px;
+        width: 80%;
+        height: 100px;
+        padding: 5px;
       }
 
-      .layer-grayout {
+      #right-hud-pane {
+        position: absolute;
+        right:5px;
+        top: 0px;
+        width: 30px;
+        height: 30px;
+      }
+
+      #right-hud-pane p,
+      #right-hud-pane div {
+        margin: 5px;
+        font-size: 15px;
+      }
+
+      #left-data-pane {
+        position: absolute;
+        width:20%;
+        left:0%;
+        top: 120px;
+      }
+      #right-data-pane {
+        position: absolute;
+        left:20%;
+        width:80%;
+        top: 120px;
+      }
+
+      #left-data-pane .invisible-layer {
         color: LightGray;
       }
 
-      .highlight-pane {
-        border: 5px solid red;
+      #left-data-pane .visible-layer {
+        color: Black;
       }
 
-      .highlight-text {
-        background-color: yellow;
+      .resizable {
+        display: inline-block;
+        height: 100%;
+        /*border-radius: 10px;*/
+        background-color: lightgray;
+      }
+
+      .resizable h3 {
+        border-right-style: none;
+        border-left-style: none;
+        text-align: center;
+        margin: 0px;
+        font-size: 15px;
+        height: 20px;
+      }
+
+      .resizable-top,
+      .dataTables_wrapper,
+      .resizable-bottom {
+        display: block;
+        box-sizing: border-box;
+        border: 1px solid gray;
+        font-size: 11px;
+        position: relative;
+        padding: 5px;
+        width: 100%;
+        height: 50%;
+      }
+
+      #tree-pane {
+        background-color: white;
+        overflow: auto;
+        height: calc(50% - 30px);
+      }
+
+      .dataTables_wrapper {
+        margin-top: 5px;
+        height: calc(50% - 5px);
+      }
+
+      .resizable-left {
+        width: 20%;
+        overflow: hidden;
+        /*overflow-y: scroll;
+        overflow-x: hidden;*/
+      }
+
+      .resizable-right {
+        width: 80%;
+        /*overflow: auto;*/
+      }
+
+      #texture-container {
+        box-sizing: border-box;
+        position: relative;
+        width: 100%;
+        padding: 5px;
+        height: calc(100% - 30px);
+        overflow: auto;
+      }
+
+      /* jquery ui */
+      .ui-resizeable-e {
+        cursor: e-resize;
+        width: 100px;
+        right: -5px;
+        top: 0;
+        height: 100%;
+      }
+
+      .ui-resizeable-s {
+        cursor: s-resize;
+        bottom: -5px;
+        height: 100px;
+        left: 0;
+        width: 100%;
+      }
+
+      .ui-dialog-title {
+        text-align: center;
+        font-size: 15px !important;
+        color: Red;
+      }
+
+      #setting-button {
+        background: url("css/setting.png") !important;
+        background-repeat: no-repeat;
+        border: none;
+        height: 24px;
+        width: 24px;
+      }
+
+      #connection-dialog {
+        font-size: 10px;
+        display: none;
+      }
+
+      #setting-options {
+        position: absolute;
+        display: none;
+        border: 1px solid gray;
+        background-color: LightGray;
+        width:200px;
+        right: 0px;
+        z-index: 1;
+        padding: 5px;
+      }
+      #setting-options > input {
+        margin: 5px;
+      }
+      #main-toolbar {
+        padding: 3px;
+        margin-bottom: 5px;
+      }
+      .ui-button {
+        cursor: pointer;
+        text-align: center;
+        height: 25px;
+        width: 100px;
+        color: #FFF;
+        border-radius: 4px;
+        border-color: #2E6DA4;
+        background: #337AB7 !important;
+      }
+      .ui-button .ui-button-text {
+        font-size: 15px;
+        line-height: 50%;
+        padding: 1px 5px;
+      }
+
+      /* Borrow from bootstrap */
+      .button-danger-color {
+        color: #FFF;
+        border-radius: 4px;
+        border-color: #D43F3A;
+        background: #D9534F !important;
+      }
+      #left-hud-pane input {
+        margin: 5px 0px;
+        width: 50%;
       }
     </style>
   </head>
   <body>
-    <input id="urlfield" value="ws://localhost:23456"></input><button id="connect">Connect</button> <span id="infomsg"></span><br>
-    <div id="replay">
-      Replay:&nbsp;
-      <button id="saveFrame">Save Frame</button>
-      <input type="file" id="loadFromFileBtn" name="files[]" />
+    <div id="connection-dialog" title="Connection">
+      <p><b>Oops!</b> Connection failed.</p>
+      <p>Possible reasons</p>
+      <p>1.  URL is not correct</p>
+      <p>2.  Network broken.</p>
     </div>
-    <div>
-      Background:&nbsp;
-      <select id="bkgselect">
-        <option selected>Pattern</option>
-        <option>White</option>
-        <option>Black</option>
-      </select>
+    <div id="left-hud-pane">
+      <div>
+        <p style="display: inline"> ULR </p>
+        <input id="url-address" value="ws://localhost:23456"></input>
+        <button id="connection-btn">Connect</button>
+      </div>
+      <div>
+        <p style="display: inline"> Persistence </p>
+        <button id="load-file-btn">Load</button>
+        <button id="save-btn">Save</button>
+        <input type="file" id="load-file-input" name="files[]" style="display:none" />
+      </div>
+      <div>
+        <div id="frame-info"></div>
+        <div id="frame-slider"></div>
+      </div>
     </div>
-    <div id="info"></div>
-    <div id="frameslider"></div>
-    <div id="error-log" class="info-error"></div>
-    <div>
-      <h3>Layer Tree:<input type="checkbox" id="checktree" checked></input></h3>
-      <table id="layertree-table">
-        <tr>
-          <td id="layertree-tree"><div id="layertree" class="nonwrap"></div></td>
-          <td id="layertree-attr"><div id="layerattr" class="nonwrap"></div></td>
-        </tr>
+    <div id="right-hud-pane" align="right">
+      <div id="setting-button">
+      </div>
+      <div id= "setting-options" align="left">
+        <input type="checkbox" id="checktree" checked>Fetch Layer Tree</input><br/>
+        <input type="checkbox" id="checkbuffer" checked>Fetch Layer Buffer</input>
+        <div>
+          Background:&nbsp;
+          <select id="bkgselect">
+            <option selected>Pattern</option>
+            <option>White</option>
+            <option>Black</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div id="left-data-pane" class="resizable resizable-left">
+      <h3 class="ui-widget-header">Layer Tree</h3>
+      <div id="tree-pane" class="resizable resizable-top"></div>
+      <table id="property-table" class="display" cellspacing="0">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Value</th>
+          </tr>
+          <tbody></tbody>
+        </thead>
       </table>
     </div>
-    <div>
-      <h3>Layer Buffer:<input type="checkbox" id="checkbuffer" checked></input></h3>
-      <div id="framedisplay"></div>
+    <div id="right-data-pane" class="resizable resizable-right">
+      <h3 class="ui-widget-header">Layer Image</h3>
+      <div id="texture-container"></div>
     </div>
-    <div id="log"></div>
   </body>
 </html>

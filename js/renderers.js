@@ -18,46 +18,97 @@ GLEnumNames[GL_TEXTURE_2D] = "TEXTURE_2D";
 GLEnumNames[GL_TEXTURE_EXTERNAL] = "TEXTURE_EXTERNAL";
 GLEnumNames[GL_TEXTURE_RECTANGLE] = "TEXTURE_RECTANGLE";
 
+LayerScope.RendererLocalMessageCenter = {
+  _handlers: {},
+
+  subscribe: function RMC_subscribe(msgName, o) {
+    if (!(msgName in this._handlers)) {
+      this._handlers[msgName] = [];
+    }
+
+    if (!(o in this._handlers[msgName])) {
+      this._handlers[msgName].push(o);
+    }
+  },
+
+  fire: function RMC_fire(msgName, value) {
+    if (!(msgName in this._handlers)) {
+      return;
+    }
+
+    let handlers = this._handlers[msgName];
+    for (let i = 0; i < handlers.length; i++) {
+      let o = handlers[i];
+      o.notify(msgName, value);
+    }
+  }
+};
+
 /*
  * Render layer buffer of the selected frame on the screen.
  *
  */
 LayerScope.LayerBufferRenderer = {
-  input: function LR_input(frame) {
-
-    $("#framedisplay").empty();
-    this._dumpTextureLayer(frame, $('#framedisplay'));
-    this._dumpColorLayer(frame, $('#framedisplay'));
+  init: function TR_init(graph) {
+    LayerScope.RendererLocalMessageCenter.subscribe("layer.select", this);
   },
-  _dumpTextureLayer: function LR_dumpTextureLayer(frame, $panel) {
-    for (let t of frame.textures) {
-      let d = $("<div>").addClass("texture-pane").addClass(t.layerRef.low.toString());
 
-      d.append($("<p>" + t.name + " &mdash; " +
-            GLEnumNames[t.target] + " &mdash; "
-            + t.width + "x" + t.height + "</p>").addClass("texture-info"));
-
-      if (t.layerRef) {
-        d.append($("<p>Layer " + LayerScope.utils.hex8(t.layerRef.low) + "</p>").addClass("texture-misc-info"));
+  notify: function LR_notify(name, value) {
+    if (name == "layer.select") {
+      $(".highlight-pane").removeClass("highlight-pane");
+      var $sprites = $("." + value).addClass("highlight-pane");
+      if ($sprites.length == 0) {
+        return;
       }
 
-      if (t.imageData || t.imageDataURL) {
-        let cs = $("<canvas>").addClass("texture-canvas").addClass("background-" + LayerScope.Config.background)[0];
-        cs.width = t.width;
-        cs.height = t.height;
+      // Scroll to those sprite.
+      var top = $("#texture-container").scrollTop() + $sprites.position().top;
+      $("#texture-container").animate({scrollTop:top}, '500', 'swing');
+    }
+  },
+
+  input: function LR_input(frame) {
+    var $panel = $("#texture-container");
+
+    $panel.empty();
+    this._drawTextureLayer(frame, $panel);
+    this._drawColorLayer(frame, $panel);
+  },
+
+  _drawTextureLayer: function LR_drawTextureLayer(frame, $panel) {
+    for (let o of frame.textures) {
+      let $sprite = $("<div>").addClass("buffer-sprite")
+                              .addClass(o.layerRef.low.toString());
+
+      $sprite.append($("<p>" + o.name + " &mdash; " +
+                     GLEnumNames[o.target] + " &mdash; "
+                     + o.width + "x" + o.height + "</p>"));
+
+      let layerID = null;
+      if (o.layerRef) {
+        layerID = o.layerRef.low;
+        $sprite.attr("data-layer-id", layerID.toString());
+        $sprite.append($("<p>Layer " + LayerScope.utils.hex8(layerID) + "</p>"));
+      }
+
+      if (o.imageData || o.imageDataURL) {
+        let cs = $("<canvas>").addClass("texture-canvas")
+                              .addClass("background-" + LayerScope.Config.background)[0];
+        cs.width = o.width;
+        cs.height = o.height;
         let cx = cs.getContext("2d");
 
-        if (t.imageData) {
+        if (o.imageData) {
           // From realtime connection
-          cx.putImageData(t.imageData, 0, 0);
+          cx.putImageData(o.imageData, 0, 0);
         } else {
           // From files
           // Note: Image store in png file, acquire addon to load it
-          if (t.imageDataURL.substring(0, 21) != "data:image/png;base64") {
+          if (o.imageDataURL.substring(0, 21) != "data:image/png;base64") {
             // Addon is created by our content script (Layerscope addon)
             // which would also export this function, readImageFromFile.
             if (typeof Addon != "undefined" && typeof Addon.readImageFromFile != "undefined") {
-              Addon.readImageFromFile(t, cx);
+              Addon.readImageFromFile(o, cx);
             } else {
               let $log = $("#error-log").empty();
               $log.append("<p>Loading images failed.<br>\
@@ -65,29 +116,44 @@ LayerScope.LayerBufferRenderer = {
                           If not, please make sure the format of this JSON file is correct.</p>");
             }
           } else {
-            this._loadImageToCanvas(t, cx);
+            this._loadImageToCanvas(o, cx);
           }
         }
-        d.append(cs);
+        if (!!layerID){
+          $sprite.on("click", function() {
+            LayerScope.RendererLocalMessageCenter.fire("buffer.select", layerID.toString());
+          });
+        }
+        $sprite.append(cs);
+        $panel.append($sprite);
       }
-      $panel.append(d);
     }
   },
-  _dumpColorLayer: function LR_dumpColoerLayer(frame, $panel) {
-    for (let l of frame.colors) {
-      let d = $("<div>").addClass("layer-pane").addClass(l.layerRef.low.toString());
 
-      d.append($("<p>" + l.type + " Layer " + LayerScope.utils.hex8(l.layerRef.low) + " &mdash; " +
-            + l.width + "x" + l.height + "</p>").addClass("layer-info"));
+  _drawColorLayer: function LR_drawColoerLayer(frame, $panel) {
+    for (let o of frame.colors) {
+      let $sprite = $("<div>").addClass("buffer-sprite")
+                              .addClass(o.layerRef.low.toString());
 
-      if (l.type == "Color") {
-        var bgdiv = $("<div>").addClass("layer-canvas").addClass("background-" + LayerScope.Config.background);
-        let colordiv = $("<div>").width(l.width).height(l.height).css("background-color", LayerScope.utils.rgbaToCss(l.color));
-        bgdiv.append(colordiv);
+      $sprite.append($("<p>" + o.type + " Layer " + LayerScope.utils.hex8(o.layerRef.low) +
+                     " &mdash; " + o.width + "x" + o.height + "</p>"));
+      let layerID = o.layerRef.low;
+      $sprite.attr("data-layer-id", layerID.toString());
+
+      if (o.type == "Color") {
+        var $bgdiv = $("<div>").addClass("layer-canvas")
+                               .addClass("background-" + LayerScope.Config.background);
+        let colordiv = $("<div>").width(o.width).height(o.height)
+                                 .css("background-color", LayerScope.utils.rgbaToCss(o.color));
+        $bgdiv.append(colordiv);
       }
 
-      d.append(bgdiv);
-      $panel.append(d);
+      $sprite.on("click", function() {
+        LayerScope.RendererLocalMessageCenter.fire("buffer.select", layerID.toString());
+      });
+
+      $sprite.append($bgdiv);
+      $panel.append($sprite);
     }
   },
   /**
@@ -132,54 +198,141 @@ const gLayerNameMap = [
  *
  */
 LayerScope.TreeRenderer = {
+  _graph: null,
+
+  init: function TR_init(graph) {
+    $('#property-table').dataTable({
+      "scrollY":        "300px",
+      "scrollCollapse": true,
+      "paging":         false,
+      //"pageLength":     10,
+      "columns": [ {"width": "40%"}, {"width": "60%"} ],
+      "fnRowCallback": function(nRow, aData, iDisplayIndex, nDisplayIndexFull) {
+        if (aData[0].search("Shadow") == 0) {
+          $('td', nRow).css({"background-color" : "DarkCyan"});
+          $('td:eq(0)', nRow).html("<b>" + aData[0] + "</b>");
+          //$(nRow).css({"background-color" : "blue"})
+        }
+      }
+    });
+    LayerScope.RendererLocalMessageCenter.subscribe("layer.select", this);
+    LayerScope.RendererLocalMessageCenter.subscribe("buffer.select", this);
+
+    this._graph = graph;
+  },
+
   input: function TR_input(frame) {
-    // Three renderer cares about frame.layerTree only.
-    if (frame.layerTree.length == 0){
+    if (frame.layerTree.length == 0) {
+      $("#tree-pane").empty();
+      $table = $("#property-table").DataTable().clear();
+
       return;
     }
 
-    // DFS print
-    var dfs = function(node) {
-      var $span = $("<span>");
+    this._drawLayerTree(frame, $("#tree-pane"));
+  },
 
-      // Store data into this tag
-      $span.data("layerValue", node.value);
+  notify: function LR_notify(name, id) {
+    if (name === "layer.select") {
+      this._drawProperty(id);
+    } else if (name === "buffer.select") {
+      let children = $("#jsTreeRoot").find("li");
 
-      // Setting
-      var isRoot = !node.value.parentPtr.low;
-      var invisible = !node.value.region;
-      if (invisible && !isRoot) {
-        $span.addClass("layer-grayout");
-      } else {
-        $span.data("ptr", node.value.ptr.low);
-        $span.mouseenter(highlight);
+      for (let i = 0; i < children.length; i++) {
+        if ($(children[i]).attr("data-layer-id") == id) {
+          // deselect original one.
+          let ids = $("#jsTreeRoot").jstree('get_selected');
+          $("#jsTreeRoot").jstree(true).deselect_node($("#" + ids[0]));
+
+          // According to id, select a new tree node.
+          $("#jsTreeRoot").jstree(true).select_node(children[i]);
+          break;
+        }
       }
 
-      // Self info
-      $span.append(gLayerNameMap[node.value.type] + "(" + LayerScope.utils.hex8(node.value.ptr.low) + ") ");
-      if (isRoot) {
-        $span.append("[root]");
-      } else if (invisible) {
-        $span.append("[non visible]");
-      }
-      var $li = $("<li>").append($span);
+      this._drawProperty(id);
+    }
+  },
 
-      // Children
+  _drawProperty: function RT_drawProperty(id) {
+    var layer = function findLayer(node, id) {
+      if (node.value.ptr.low == id)
+        return node;
+
       for (let child of node.children) {
-        $li.append(dfs(child));
+        var matched = findLayer(child, id);
+        if (matched) {
+          return matched;
+        }
       }
-      return $("<ul>").append($li);
-    };
+    }(this._graph.frame.layerTree[0], id);
 
-    var $d = $("<div>");
+    // Clear Layer property table.
+    var $table = $("#property-table").DataTable()
+    $table.clear();
+
+    // Display properties of the selected layer.
+    var dataSet = [];
+    generateLayerAttributes(layer.value, dataSet);
+    if (dataSet.length > 0) {
+      for (let i = 0; i< dataSet.length; i++) {
+        $table.row.add(dataSet[i]);
+      }
+
+      $table.draw();
+    }
+  },
+
+  _drawLayerTree: function TR_dumpLayerTree(frame, $pane) {
+    var $treeRoot = $('<div id="jsTreeRoot">');
     for (let root of frame.layerTree) {
-      $d.append(dfs(root));
-    };
+      $treeRoot.append(function createTreeNode(node) {
+        // Put layer name tag in span.
+        let $span = $("<span>");
+        $span.append(gLayerNameMap[node.value.type] + "(" +
+            LayerScope.utils.hex8(node.value.ptr.low) + ") ");
 
-    // Append to layerdump div
-    $("#layertree").empty();
-    $("#layertree").append($d);
-    $("#layerattr").empty();
+        // Create tree-ish
+        let isRoot = !node.value.parentPtr.low;
+        let invisible = !node.value.region;
+        let $li = $("<li>").append($span);
+        $li.attr("data-jstree", node.children.length ?
+                 '{"icon":"css/layers-icon.png"}' :
+                 '{"icon":"css/texture-icon.png"}')
+           .attr("data-layer-id", node.value.ptr.low)
+           .addClass(invisible && !isRoot ? "invisible-layer" : "visible-layer");
+
+        for (let child of node.children) {
+          $li.append(createTreeNode(child));
+        }
+
+        return $("<ul>").append($li);
+      }(root));
+    }
+
+    // Append to layerdump div.
+    // For unknow reasons, we have to append $d _before_ makes it as a jstree.
+    $pane.empty();
+    $pane.append($treeRoot);
+
+    // TODO:
+    // The right thing here is to replace li/ul insertion by jstree/JSON.
+    // I will do the change later.
+    $treeRoot.bind("loaded.jstree", function(event, data) {
+      // We expect open all folder nodes in the tree.
+      data.instance.open_all();
+    }).bind("select_node.jstree", function(event) {
+      var ids = $("#jsTreeRoot").jstree('get_selected');
+      console.assert(ids.length == 1);
+      let $li = $("#" + ids[0]);
+
+      if ($li.hasClass("invisible-layer")) {
+        $("#jsTreeRoot").jstree(true).deselect_node($li);
+      } else {
+        LayerScope.RendererLocalMessageCenter
+                  .fire("layer.select", $li.attr("data-layer-id"));
+      }
+    }).jstree();
   },
 };
 
@@ -187,40 +340,14 @@ LayerScope.TreeRenderer = {
 LayerScope.RendererNode.register(LayerScope.TreeRenderer);
 
 // TBD:
-// Don't spend time on the following function. I am going to 
-// replace these functions by new UI template.
+// Functions needs to be clean up. Don't add lines of code beneath this line.
 
-/**
- * highlight and unhighlight the specific layer image
- * Note: This function is used for jQuery mouseenter
- */
-function highlight() {
-  // Highlight text
-  $(".highlight-text").removeClass("highlight-text");
-  $(this).addClass("highlight-text");
-
-  // Highligh images
-  $(".highlight-pane").removeClass("highlight-pane");
-  $("." + $(this).data("ptr").toString()).addClass("highlight-pane");
-
-  // Append Attributes
-  var $d = $("<div>");
-  var $table = $("<table>").addClass("layerattr-table");
-  var $tr = $("<tr>").addClass("layerattr-title").append("<td><strong>Layer Attributes</strong></td>");
-  $table.append($tr);
-  $tr = $("<tr>").append("<td><ul>" + showAttributes($(this).data("layerValue")).html() + "</ul></td>");
-  $table.append($tr);
-  $d.append($table);
-
-  $("#layerattr").empty();
-  $("#layerattr").append($d);
-}
 /**
  * Handle layer attribute and show them in html
  * @param {object} data The attribute data
  * @return ul tag with attributes
  */
-function showAttributes(data) {
+function generateLayerAttributes(data, dataSet) {
   // Filter Type Map
   const FilterMap = [
     "Fast",
@@ -232,138 +359,116 @@ function showAttributes(data) {
     "Sentinel"
   ];
   // Show functions wrapper
-  var showAttrWrapper = {
-    showClip: // Create clip info
-      function(clip) {
-        return $("<li>Clip: (x=" + clip.x +
-                          ", y=" + clip.y +
-                          ", w=" + clip.w +
-                          ", h=" + clip.h + ")</li>");
-      },
-    showTransform: // Create transform info
-      function(transform) {
-        let $li = $("<li>");
-        if(transform.is2D) {
-          if(transform.isID) {
-            $li.append("Transform: 2D Identity");
-          } else {
-            $li.append("Transform: [");
-            for (let i=0; i<6; i+=2) {
-              $li.append(transform.m[i] + ", " + transform.m[i+1] + "; ");
-            }
-            $li.append("]");
-          }
+  var convertor = {
+    clip: function(clip, name) {
+      dataSet.push( [
+          name,
+          "x=" + clip.x +
+          " y=" + clip.y +
+          " w=" + clip.w +
+          " h=" + clip.h
+      ])
+    },
+    transform: function(transform, name) {
+      if(transform.is2D) {
+        if(transform.isID) {
+          dataSet.push([
+            "Transform",
+            "2D Identity"]);
         } else {
-          $li.append("Transform:<br>");
-          for (let i=0; i<16; i+=4) {
-              $li.append("[" + transform.m[i]   + ", " +
-                               transform.m[i+1] + ", " +
-                               transform.m[i+2] + ", " +
-                               transform.m[i+3] + "]<br>");
+          let value = "";
+          for (let i=0; i<6; i+=2) {
+            value += "(" + transform.m[i] + ", " + transform.m[i+1] + "); ";
           }
+
+          dataSet.push([name, value]);
         }
-        return $li;
-      },
-    showRegion: // Create region info
-      function(region, name) {
-        let $li = $("<li>");
-        for (let r of region) {
-          $li.append(name + ": (x=" + r.x +
-                             ", y=" + r.y +
-                             ", w=" + r.w +
-                             ", h=" + r.h + ")<br>");
+      } else {
+        let value = "";
+        for (let i=0; i<16; i+=4) {
+            value += "[" + transform.m[i]   + ", " + transform.m[i+1] + ", " +
+                     transform.m[i+2] + ", " + transform.m[i+3] + "]";
         }
-        return $li;
+        dataSet.push([name, value]);
       }
+    },
+    region: function(region, name) {
+      let value = ""
+      for (let r of region) {
+        value += "x=" + r.x + " y=" + r.y +
+                 " w=" + r.w + " h=" + r.h + "<br>";
+      }
+
+      dataSet.push([name,value]);
+    }
   };
 
-  // OK, Let's start to show attributes
-  var $ul = $("<ul>");
-  var $li = $("<li>").append("Type: " + gLayerNameMap[data.type] + "Composite");
-  if (!data.parentPtr.low) {
-    $li.append(" [root]");
-  }
-  $ul.append($li);
-
+  // Shadow layer.
+  //http://datatables.net/examples/api/row_details.html
   // Actually, only visible layers enter this function
   if (!!data.shadow) {
-    let $sli = $("<li>").append("Shadow:");
-    let $sul = $("<ul>");
     if (!!data.shadow.clip) {
-      $sul.append(showAttrWrapper.showClip(data.shadow.clip));
+      convertor.clip(data.shadow.clip, "Shadow Clip");
     }
     if (!!data.shadow.transform) {
-      $sul.append(showAttrWrapper.showTransform(data.shadow.transform));
+     convertor.transform(data.shadow.transform, "Shadow Transform");
     }
     if (!!data.shadow.region) {
-      $sul.append(showAttrWrapper.showRegion(data.shadow.region, "Visible"));
+      convertor.region(data.shadow.region, "Shadow Visible");
     }
-    $sli.append($sul);
-    $ul.append($sli);
   }
 
+  // Common layer properties
   if (!!data.clip) {
-    $ul.append(showAttrWrapper.showClip(data.clip));
+    convertor.clip(data.clip, "Clip");
   }
-
   if (!!data.transform) {
-    $ul.append(showAttrWrapper.showTransform(data.transform));
+    convertor.transform(data.transform, "Transform");
   }
-
   if (!!data.region) {
-    $ul.append(showAttrWrapper.showRegion(data.region, "Visible"));
+    convertor.region(data.region, "Visible");
   }
 
   if (!!data.opacity) {
-    $ul.append("<li>Opacity: "+ data.opacity + "</li>");
+    dataSet.push(["Opacity", data.opacity]);
   }
 
-  if (!!data.opaque) {
-    $ul.append("<li>[Content Opaque]</li>");
-  }
-
-  if (!!data.alpha) {
-    $ul.append("<li>[Content Component Alpha]</li>");
-  }
+  dataSet.push(["Opaque", (!!data.opaque) ? "True" : "False"]);
+  dataSet.push(["Component Alpah", (!!data.alpha) ? "True" : "False"]);
 
   if (!!data.direct) {
-    let $li = $("<li>");
-    if (data.direct === LayersPacket.Layer.ScrollingDirect.VERTICAL ) {
-      $li.append("VERTICAL: ");
-    } else {
-      $li.append("HORIZONTAL: ");
-    }
-    $li.append("(id: " + LayerScope.utils.hex8(data.barID.low) + " )");
-    $ul.append($li);
+    let vertical = (data.direct === LayersPacket.Layer.ScrollingDirect.VERTICAL);
+    let value = "id: " + LayerScope.utils.hex8(data.barID.low);
+    dataSet.push([vertical ? "VERTICAL" : "HORIZONTAL", value]);
   }
 
   if (!!data.mask) {
-    $ul.append("<li>Mask Layer: "+ LayerScope.utils.hex8(data.mask.low) + "</li>");
+    let value = LayerScope.utils.hex8(data.mask.low);
+    dataSet.push(["Mask Layer", value]);
   }
 
-  // Specific layer data
-  // Valid (PaintedLayer)
   if (!!data.valid) {
-    $ul.append(showAttrWrapper.showRegion(data.valid, "Valid"));
+    convertor.region(data.valid, "Valid Region");
   }
+
+  // Specific layer property
   // Color (ColorLayer)
   if (!!data.color) {
-    $ul.append("<li>Color: " + LayerScope.utils.rgbaToCss(data.color) +"</li>");
+    dataSet.push(["Color", LayerScope.utils.rgbaToCss(data.color)]);
   }
   // Filter (CanvasLayer & ImageLayer)
   if (!!data.filter) {
-    $ul.append("<li>Filter: " + FilterMap[data.filter] + "</li>");
+    dataSet.push(["Filter", FilterMap[data.filter]]);
   }
   // Ref ID (RefLayer)
   if (!!data.refID) {
-    $ul.append("<li>ID: " + LayerScope.utils.hex8(data.refID.low) + "</li>");
+    dataSet.push(["ID", LayerScope.utils.hex8(data.refID.low)]);
   }
   // Size (ReadbackLayer)
   if (!!data.size) {
-    $ul.append("<li>Size: (w=" + data.size.w +
-                        ", h=" + data.size.h + ")</li>");
+    let value = "w=" + data.size.w + ", h=" + data.size.h + "";
+    dataSet.push(["Size", value]);
   }
-  return $ul;
 }
 
 // LayerScope add-on backward compatible

@@ -142,24 +142,6 @@ LayerScope.LayerBufferRenderer = {
       $panel.append($sprite);
     }
   },
-  /**
-  * Load images to canvas
-  * @param {object} texture
-  */
-  _loadImageToCanvas: function R_loadImageToCanvas(texture, cx) {
-    // convert from base64 to raw image buffer
-    var img = $("<img>", { src: texture.imageDataURL });
-    var loadingCanvas = $("<canvas>")[0];
-    loadingCanvas.width = texture.width;
-    loadingCanvas.height = texture.height;
-    let context = loadingCanvas.getContext("2d");
-    let temp = texture;
-    img.load(function() {
-      context.drawImage(this, 0, 0);
-      temp.imageData = context.getImageData(0, 0, temp.width, temp.height);
-      cx.putImageData(temp.imageData, 0, 0);
-    });
-  },
 };
 
 // Regist LayerBufferRenderer into RendererNode

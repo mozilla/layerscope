@@ -50,6 +50,7 @@ LayerScope.RendererLocalMessageCenter = {
  */
 LayerScope.LayerBufferRenderer = {
   init: function TR_init(graph) {
+    this._graph = graph;
     LayerScope.RendererLocalMessageCenter.subscribe("layer.select", this);
   },
 
@@ -76,57 +77,42 @@ LayerScope.LayerBufferRenderer = {
   },
 
   _drawTextureLayer: function LR_drawTextureLayer(frame, $panel) {
-    for (let o of frame.textures) {
+    for (let texNode of frame.textureNodes) {
+      let tex = this._graph.findTexture(texNode.texID);
+      if (tex === undefined || tex.imageData === undefined) {
+        //TODO
+        //Show link broken image.
+        continue;
+      }
       let $sprite = $("<div>").addClass("buffer-sprite")
-                              .addClass(o.layerRef.low.toString());
+                              .addClass(texNode.layerRef.low.toString());
 
-      $sprite.append($("<p>" + o.name + " &mdash; " +
-                     GLEnumNames[o.target] + " &mdash; "
-                     + o.width + "x" + o.height + "</p>"));
+      $sprite.append($("<p>" + texNode.name + " &mdash; " +
+                     GLEnumNames[texNode.target] + " &mdash; "
+                     + tex.width + "x" + tex.height + "</p>"));
 
       let layerID = null;
-      if (o.layerRef) {
-        layerID = o.layerRef.low;
+      if (texNode.layerRef) {
+        layerID = texNode.layerRef.low;
         $sprite.attr("data-layer-id", layerID.toString());
         $sprite.append($("<p>Layer " + LayerScope.utils.hex8(layerID) + "</p>"));
       }
 
-      if (o.imageData || o.imageDataURL) {
-        let cs = $("<canvas>").addClass("texture-canvas")
-                              .addClass("background-" + LayerScope.Config.background)[0];
-        cs.width = o.width;
-        cs.height = o.height;
-        let cx = cs.getContext("2d");
+      let cs = $("<canvas>").addClass("texture-canvas")
+                            .addClass("background-" + LayerScope.Config.background)[0];
+      cs.width = tex.width;
+      cs.height = tex.height;
+      let cx = cs.getContext("2d");
 
-        if (o.imageData) {
-          // From realtime connection
-          cx.putImageData(o.imageData, 0, 0);
-        } else {
-          // From files
-          // Note: Image store in png file, acquire addon to load it
-          if (o.imageDataURL.substring(0, 21) != "data:image/png;base64") {
-            // Addon is created by our content script (Layerscope addon)
-            // which would also export this function, readImageFromFile.
-            if (typeof Addon != "undefined" && typeof Addon.readImageFromFile != "undefined") {
-              Addon.readImageFromFile(o, cx);
-            } else {
-              let $log = $("#error-log").empty();
-              $log.append("<p>Loading images failed.<br>\
-                          If you are using layerscope addon, please make sure its version is correct.<br>\
-                          If not, please make sure the format of this JSON file is correct.</p>");
-            }
-          } else {
-            this._loadImageToCanvas(o, cx);
-          }
-        }
-        if (!!layerID){
-          $sprite.on("click", function() {
-            LayerScope.RendererLocalMessageCenter.fire("buffer.select", layerID.toString());
-          });
-        }
-        $sprite.append(cs);
-        $panel.append($sprite);
+      cx.putImageData(tex.imageData, 0, 0);
+      if (!!layerID){
+        $sprite.on("click", function() {
+          LayerScope.RendererLocalMessageCenter.fire("buffer.select", layerID.toString());
+        });
       }
+
+      $sprite.append(cs);
+      $panel.append($sprite);
     }
   },
 
@@ -469,11 +455,4 @@ function generateLayerAttributes(data, dataSet) {
     let value = "w=" + data.size.w + ", h=" + data.size.h + "";
     dataSet.push(["Size", value]);
   }
-}
-
-// LayerScope add-on backward compatible
-// https://github.com/mephisto41/LayerScope-Addon
-// Keep functions which are used by add-on
-function loadImageToCanvas(texture, cx) {
-  return LayerScope.LayerBufferRenderer._loadImageToCanvas(texture, cx);
 }

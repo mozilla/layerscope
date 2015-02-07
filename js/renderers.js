@@ -141,7 +141,7 @@ LayerScope.LayerBufferRenderer = {
       $sprite.append($bgdiv);
       $panel.append($sprite);
     }
-  },
+  }
 };
 
 // Regist LayerBufferRenderer into RendererNode

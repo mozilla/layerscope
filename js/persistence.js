@@ -63,35 +63,32 @@ LayerScope.Storage = {
     // image.load is not a sync call. Create a promise and return it
     // to the caller. The caller should define "then" function to
     // receive resolve callback.
-    var loadedPromise = new Promise(
-      function(resolve, reject) {
-        var canvas = $("<canvas>")[0];
-        var ctx = canvas.getContext("2d");
-        var loaded = 0;
-        $.each(imageFiles, function (index, entry) {
-          // Extract filename as texture content hash key
-          var match = entry.name.match(/image\/(.*)\.png$/);
-          let key = match[1];
-          let dataURL = "data:image/png;base64," +
-                        JSZip.base64.encode(imageFiles[index].asBinary());
+    return new Promise(function(resolve, reject) {
+      var canvas = $("<canvas>")[0];
+      var ctx = canvas.getContext("2d");
+      var loaded = 0;
+      $.each(imageFiles, function (index, entry) {
+        // Extract filename as texture content hash key
+        var match = entry.name.match(/image\/(.*)\.png$/);
+        let key = match[1];
+        let dataURL = "data:image/png;base64," +
+                      JSZip.base64.encode(imageFiles[index].asBinary());
 
-          // Generate texture object and put it into TexturePool.
-          var img = $("<img>", { src: dataURL });
-          img.load(function() {
-            canvas.width = this.width;
-            canvas.height = this.height;
+        // Generate texture object and put it into TexturePool.
+        var img = $("<img>", { src: dataURL });
+        img.load(function() {
+          canvas.width = this.width;
+          canvas.height = this.height;
 
-            ctx.drawImage(this, 0, 0);
-            let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(this, 0, 0);
+          let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
-            pool.addTexture(key, imageData, this.width, this.height);
-            if (++loaded === imageFiles.length) {
-              resolve([frames, pool]);
-            }
-          });
+          pool.addTexture(key, imageData, this.width, this.height);
+          if (++loaded === imageFiles.length) {
+            resolve([frames, pool]);
+          }
         });
       });
-
-    return loadedPromise;
+    });
   }
 }

@@ -21,9 +21,12 @@
     <script src="lib/protobuf/Long.js"></script>
     <script src="lib/protobuf/ByteBufferAB.js"></script>
     <script src="lib/protobuf/ProtoBuf.js"></script>
+    <script src="lib/bitmap.js"></script>
+    <script src="lib/jszip.min.js"></script>
 
     <!-- layerview source -->
     <script type="application/javascript;version=1.8" src="js/common.js"></script>
+    <script type="application/javascript;version=1.8" src="js/persistence.js"></script>
     <script type="application/javascript;version=1.8" src="js/layerview.js"></script>
     <script type="application/javascript;version=1.8" src="js/renderers.js"></script>
     <script type="application/javascript;version=1.8" src="js/dataprocesser.js"></script>
@@ -223,7 +226,6 @@
       .ui-dialog-title {
         text-align: center;
         font-size: 15px !important;
-        color: Red;
       }
 
       #setting-button {
@@ -234,8 +236,7 @@
         width: 24px;
       }
 
-      #connection-dialog {
-        font-size: 10px;
+      #modal-dialog {
         display: none;
       }
 
@@ -286,11 +287,7 @@
     </style>
   </head>
   <body>
-    <div id="connection-dialog" title="Connection">
-      <p><b>Oops!</b> Connection failed.</p>
-      <p>Possible reasons</p>
-      <p>1.  URL is not correct</p>
-      <p>2.  Network broken.</p>
+    <div id="modal-dialog" title="Connection">
     </div>
     <div id="left-hud-pane">
       <div>

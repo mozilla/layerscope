@@ -102,7 +102,14 @@ LayerScope.ConnectionManager.prototype = {
       this._socket.onerror = function(ev) {
         // Do this check to prevent onerror callback after onclose.
         if (!!this._socket) {
-          $("#connection-dialog").dialog({ modal: true });
+          $("#modal-dialog").html("\
+            <p>Can not create a connection successfully.</p>\
+            <p>Possible reasons</p>\
+            <p>. URL is not correct</p>\
+            <p>. Network broken.</p>");
+          $("#modal-dialog").dialog({
+            title: "Connection Failed",
+            modal: true });
         }
       }.bind(this);
 
@@ -464,7 +471,7 @@ $(function() {
         cm.disconnect();
       } else {
         var url = $("#url-address")[0].value;
-        cm.connect(url)
+        cm.connect(url);
       }
     });
 
@@ -487,11 +494,18 @@ $(function() {
     var reader = new FileReader();
     reader.onload = function (e) {
       var data = e.target.result;
-      LayerScope.Storage.load(data).then(
-        function (storage) {
-          $("#save-btn").button({ "disabled": false });
-          LayerScope.Session.begin(storage[0], storage[1]);
-        });
+      try {
+        LayerScope.Storage.load(data).then(
+          function (storage) {
+            $("#save-btn").button({ "disabled": false });
+            LayerScope.Session.begin(storage[0], storage[1]);
+          });
+      } catch(e) {
+        $("#modal-dialog").html("<p>Invalid zip file.</p>");
+        $("#modal-dialog").dialog({
+          title: "Load Failed",
+          modal: true });
+      }
     }
 
     var file = evt.target.files[0];

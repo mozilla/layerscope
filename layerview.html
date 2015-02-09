@@ -21,9 +21,11 @@
     <script src="lib/protobuf/Long.js"></script>
     <script src="lib/protobuf/ByteBufferAB.js"></script>
     <script src="lib/protobuf/ProtoBuf.js"></script>
+    <script src="lib/jszip.min.js"></script>
 
     <!-- layerview source -->
     <script type="application/javascript;version=1.8" src="js/common.js"></script>
+    <script type="application/javascript;version=1.8" src="js/persistence.js"></script>
     <script type="application/javascript;version=1.8" src="js/layerview.js"></script>
     <script type="application/javascript;version=1.8" src="js/renderers.js"></script>
     <script type="application/javascript;version=1.8" src="js/dataprocesser.js"></script>
@@ -203,40 +205,12 @@
         overflow: auto;
       }
 
-      /* jquery ui */
-      .ui-resizeable-e {
-        cursor: e-resize;
-        width: 100px;
-        right: -5px;
-        top: 0;
-        height: 100%;
-      }
-
-      .ui-resizeable-s {
-        cursor: s-resize;
-        bottom: -5px;
-        height: 100px;
-        left: 0;
-        width: 100%;
-      }
-
-      .ui-dialog-title {
-        text-align: center;
-        font-size: 15px !important;
-        color: Red;
-      }
-
       #setting-button {
         background: url("css/setting.png") !important;
         background-repeat: no-repeat;
         border: none;
         height: 24px;
         width: 24px;
-      }
-
-      #connection-dialog {
-        font-size: 10px;
-        display: none;
       }
 
       #setting-options {
@@ -256,6 +230,8 @@
         padding: 3px;
         margin-bottom: 5px;
       }
+
+      /* Customize jquery UI*/
       .ui-button {
         cursor: pointer;
         text-align: center;
@@ -272,6 +248,45 @@
         padding: 1px 5px;
       }
 
+      .progress-label {
+        text-align: center;
+        left: 50%;
+        font-weight: bold;
+        text-shadow: 1px 1px 0 #ffff;
+      }
+
+      .ui-progressbar {
+        height: 10px;
+      }
+
+      .ui-resizeable-e {
+        cursor: e-resize;
+        width: 100px;
+        right: -5px;
+        top: 0;
+        height: 100%;
+      }
+
+      .ui-resizeable-s {
+        cursor: s-resize;
+        bottom: -5px;
+        height: 100px;
+        left: 0;
+        width: 100%;
+      }
+
+      .ui-dialog .ui-dialog-title {
+        height: 15px;
+        width: 100%;
+        text-align: center;
+        font-size: 15px !important;
+      }
+
+      .no-close .ui-dialog-titlebar-close {
+        display: none;
+      }
+
+
       /* Borrow from bootstrap */
       .button-danger-color {
         color: #FFF;
@@ -286,12 +301,6 @@
     </style>
   </head>
   <body>
-    <div id="connection-dialog" title="Connection">
-      <p><b>Oops!</b> Connection failed.</p>
-      <p>Possible reasons</p>
-      <p>1.  URL is not correct</p>
-      <p>2.  Network broken.</p>
-    </div>
     <div id="left-hud-pane">
       <div>
         <p style="display: inline"> URL </p>

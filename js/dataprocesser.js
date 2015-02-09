@@ -11,10 +11,8 @@ if (typeof LayerScope == "undefined" || !LayerScope) {
 // Process sockect data from the profile target.
 LayerScope.ProtoDataProcesser = {
   _graph: null,
-  _ctx: null,
   _packet: null,
   _receivingFrame: null,
-  _imageCache: {},
 
   // Create protocol message object once we really need it.
   _lazyBuild: function PDP_lazyBuild() {
@@ -28,18 +26,11 @@ LayerScope.ProtoDataProcesser = {
   begin: function PDP_begin(graph) {
     this.end();
     this._graph = graph;
-
-    let canvas = document.createElement("canvas");
-    canvas.width = 1;
-    canvas.height = 1;
-    this._ctx = canvas.getContext("2d");
   },
 
   end: function PDP_end() {
-    this._imageCache = {};
     this._graph = null;
     this._receivingFrame = null;
-    this._ctx = null;
   },
 
   /**
@@ -90,7 +81,7 @@ LayerScope.ProtoDataProcesser = {
         this._ensureReceivingFrame();
 
         if (p.texture != null) {
-          this._receivingFrame.textures.push(this._getTexData(p.texture));
+          this._receivingFrame.textureNodes.push(this._getTexData(p.texture));
         }
         break;
 
@@ -128,12 +119,7 @@ LayerScope.ProtoDataProcesser = {
     if (this._receivingFrame)
       return;
 
-    this._receivingFrame = {
-      id: stamp || {low: 0, high: 0},
-      textures: [],
-      colors: [],
-      layerTree: []
-    };
+    this._receivingFrame = new LayerScope.Frame(stamp);
   },
   _getLayerTreeData: function PDP_getLayerTreeData(players) {
     let layers = [this._createLayerNode(layer) for (layer of players.layer)];
@@ -156,55 +142,28 @@ LayerScope.ProtoDataProcesser = {
   * @return {object} Image data
   */
   _getTexData: function R_getImage(ptexture) {
-    var t = ptexture;
-    var texData = {
-      name: ptexture.name,
-      width: ptexture.width,
-      height: ptexture.height,
-      stride: ptexture.stride,
-      target: ptexture.target,
-      dataFormat: ptexture.dataformat,
-      layerRef: {
-        low: ptexture.layerref.getLowBitsUnsigned(),
-        high: ptexture.layerref.getHighBitsUnsigned()},
-      contextRef: ptexture.glcontext
+    // Create a texture in texture pool, if need.
+    var source = new Uint8Array(ptexture.data.toArrayBuffer());
+    let key = this._graph.texturePool.createTexture(source,
+                                             ptexture.width,
+                                             ptexture.height,
+                                             ptexture.dataformat,
+                                             ptexture.stride);
+
+    //  Create a texture node
+    let layerRef = {
+      low: ptexture.layerref.getLowBitsUnsigned(),
+      high: ptexture.layerref.getHighBitsUnsigned()
     };
+    let tn = new LayerScope.TextureNode(ptexture.name,
+                                        ptexture.target,
+                                        key,
+                                        layerRef,
+                                        ptexture.glcontext);
 
-    var srcData = new Uint8Array(ptexture.data.toArrayBuffer());
-    var hash = sha1.hash(srcData);
-
-    if (hash && hash in this._imageCache) {
-      texData.imageData = this._imageCache[hash];
-    } else if (texData.width > 0 && texData.height > 0) {
-      if ((texData.dataFormat >> 16) & 1) {
-        // it's lz4 compressed
-        let dstData = new Uint8Array(texData.stride * texData.height);
-        let rv = LZ4_uncompressChunk(srcData, dstData);
-        if (rv < 0)
-          console.log("Error: uncompression error at: ", rv);
-        srcData = dstData;
-      }
-
-      // now it's uncompressed
-      texData.imageData = this._ctx.createImageData(texData.width, texData.height);
-      if (texData.stride == texData.width * 4) {
-        texData.imageData.data.set(srcData);
-      } else {
-        let dstData = texData.imageData.data;
-        for (let j = 0; j < texData.height; j++) {
-          for (let i = 0; i < texData.width; i++) {
-            dstData[j*texData.width*4 + i*4 + 0] = srcData[j*texData.stride + i*4 + 0];
-            dstData[j*texData.width*4 + i*4 + 1] = srcData[j*texData.stride + i*4 + 1];
-            dstData[j*texData.width*4 + i*4 + 2] = srcData[j*texData.stride + i*4 + 2];
-            dstData[j*texData.width*4 + i*4 + 3] = srcData[j*texData.stride + i*4 + 3];
-          }
-        }
-      }
-      if (hash)
-        this._imageCache[hash] = texData.imageData;
-    }
-
-    return texData;
+    // Associate texure node with texture pool by key.
+    tn.texID = key;
+    return tn;
   },
   /**
   *

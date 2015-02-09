@@ -92,9 +92,10 @@ LayerScope.ConnectionManager.prototype = {
   connect: function CM_connect(url) {
     var urlinfo = this._parseURL(url);
     if (!urlinfo) {
-      alert("Invalid URL");
+      LayerScope.utils.modal("<p>Invalid URL.</p>", "Connection Failed");
     } else if (urlinfo.protocol != "ws") {
-      alert("protocol " + urlinfo.protocol + " not implemented");
+      let msg = "<p>Protocol " + urlinfo.protocol + " not implemented</p>";
+      LayerScope.utils.modal(msg, "Connection Failed");
     } else {
       this._socket = new WebSocket(url, 'binary');
       this._socket.binaryType = "arraybuffer";
@@ -102,7 +103,11 @@ LayerScope.ConnectionManager.prototype = {
       this._socket.onerror = function(ev) {
         // Do this check to prevent onerror callback after onclose.
         if (!!this._socket) {
-          $("#connection-dialog").dialog({ modal: true });
+          let msg = "<p>Can not create a connection successfully.</p>\
+                     <p>Possible reasons</p>\
+                     <p>. URL is not correct</p>\
+                     <p>. Network broken.</p>";
+          LayerScope.utils.modal(msg, "Connection Failed");
         }
       }.bind(this);
 
@@ -295,6 +300,7 @@ LayerScope.CommandHandler = {
 
 LayerScope.Session = {
   _frames: [],
+  _texturePool: null,
   _currentFrame: -1,
   _connectionManager: null,
   _pbufbuilder: null, // protocol buffer builder
@@ -317,14 +323,22 @@ LayerScope.Session = {
     LayerScope.RendererNode.init();
   },
 
+  findTexture: function SS_findTexture(id) {
+    return this._texturePool.findTexture(id);
+  },
+
+  get texturePool() {
+    return this._texturePool;
+  },
+
   // Start a session.
-  begin: function SS_begin(frames) {
+  begin: function SS_begin(frames, pool) {
     this._end();
 
     LayerScope.DataProcesserNode.begin();
     LayerScope.RendererNode.begin();
 
-    $("#error-log").empty();
+    this._texturePool = pool ? pool : new LayerScope.TexturePool();
 
     // We should make sure that checkers' statuses are the same as
     // those on server side
@@ -374,47 +388,7 @@ LayerScope.Session = {
   * @param {object} frameData
   */
   dump: function SS_dump() {
-    // Make sure data URL generated.
-    this._genDataURL();
-
-    function replacer(key, value) {
-      if (key == "imageData") {
-        return undefined;
-      } else {
-        return value;
-      }
-    }
-
-    var json = JSON.stringify(this._frames, replacer);
-    var blob = new Blob([json], {type: "application/json"});
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement('a');
-    a.download = "backup.json";
-    a.href = url;
-    a.textContent = "Download backup.json";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  },
-
-  /*
-  * Convert image data to data URL
-  */
-  _genDataURL: function SS_genDataURL() {
-    var canvasToSave = $("<canvas>")[0];
-    var canvasToSaveCx = canvasToSave.getContext("2d");
-    for (var i = 0; i < this._frames.length; ++i) {
-      var frame = this._frames[i];
-      for (var j = 0; j < frame.textures.length; ++j) {
-        var t = frame.textures[j];
-        if (t.imageData && (t.imageDataURL === undefined)) {
-          canvasToSave.width = t.width;
-          canvasToSave.height = t.height;
-          canvasToSaveCx.putImageData(t.imageData, 0, 0);
-          t.imageDataURL = canvasToSave.toDataURL();
-        }
-      }
-    }
+    LayerScope.Storage.save(this._frames, this.texturePool);
   },
 
   appendFrame: function SS_appendFrame(frame) {
@@ -468,6 +442,7 @@ $(function() {
       LayerScope.Session.display();
     }
   });
+
   $("#url-address").addClass("ui-corner-all");
 
   $("#setting-button")
@@ -485,6 +460,7 @@ $(function() {
         $("#setting-options").fadeOut('500');
       }
     });
+
   $("#connection-btn").button()
     .on("click", function(event) {
       event.preventDefault();
@@ -493,7 +469,7 @@ $(function() {
         cm.disconnect();
       } else {
         var url = $("#url-address")[0].value;
-        cm.connect(url)
+        cm.connect(url);
       }
     });
 
@@ -512,63 +488,67 @@ $(function() {
     if (cm.isConnected()) {
       cm.disconnect();
     }
+
     var reader = new FileReader();
     reader.onload = function (e) {
-      var obj = e.target.result;
-      var frames = JSON.parse(obj);
-
-      $("#save-btn").button({ "disabled": false });
-      LayerScope.Session.begin(frames);
+      var data = e.target.result;
+      try {
+        LayerScope.Storage.load(data).then(
+          function (storage) {
+            $("#save-btn").button({ "disabled": false });
+            LayerScope.Session.begin(storage[0], storage[1]);
+          });
+      } catch(e) {
+        LayerScope.utils.modal("<p>Invalid zip file.</p>", "Loading Failed");
+      }
     }
 
     var file = evt.target.files[0];
-    reader.readAsText(file);
+    reader.readAsArrayBuffer(file);
   });
 
-  $(".resizable-left").resizable(
-    {
-      autoHide: true,
-      handles: 'e',
-      resize: function(e, ui) {
-        var parent = ui.element.parent();
-        var remainingSpace = parent.width() - ui.element.outerWidth(),
+  $(".resizable-left").resizable({
+    autoHide: true,
+    handles: 'e',
+    resize: function(e, ui) {
+      var parent = ui.element.parent();
+      var remainingSpace = parent.width() - ui.element.outerWidth(),
           divTwo = ui.element.next(),
           divTwoWidth = (remainingSpace - (divTwo.outerWidth() - divTwo.width()))
                         / parent.width() * 100 - 2;
           divTwo.width(remainingSpace + "px");
           divTwo.css({left: ui.element.width() + "px"});
-      },
-      stop: function(e, ui) {
-        var parent = ui.element.parent();
-        ui.element.css({
-          width: ui.element.width()/parent.width()*100+"%",
-        });
-        ui.element.next().css({
-          left: ui.element.width() + "px"
-        });
-      }
-    });
+    },
+    stop: function(e, ui) {
+      var parent = ui.element.parent();
+      ui.element.css({
+        width: ui.element.width()/parent.width()*100+"%",
+      });
+      ui.element.next().css({
+        left: ui.element.width() + "px"
+      });
+    }
+  });
 
-  $("#tree-pane").resizable(
-    {
-      containment: "#left-data-pane",
-      autoHide: true,
-      handles: 's',
-      resize: function(e, ui) {
-        var parent = ui.element.parent();
-        var remainingSpace = parent.height() - ui.element.outerHeight(),
+  $("#tree-pane").resizable({
+    containment: "#left-data-pane",
+    autoHide: true,
+    handles: 's',
+    resize: function(e, ui) {
+      var parent = ui.element.parent();
+      var remainingSpace = parent.height() - ui.element.outerHeight(),
           divTwo = ui.element.next(),
           divTwoHeight = (remainingSpace - (divTwo.outerHeight() - divTwo.height()))
                         / parent.height() * 100 - 2 + "%";
           divTwo.height(divTwoHeight);
-      },
-      stop: function(e, ui) {
-        var parent = ui.element.parent();
-        ui.element.css({
-          height: ui.element.height()/parent.height()*100+"%",
-        });
-      }
-    });
+    },
+    stop: function(e, ui) {
+      var parent = ui.element.parent();
+      ui.element.css({
+        height: ui.element.height()/parent.height()*100+"%",
+      });
+    }
+  });
 
   LayerScope.Session.init();
 });

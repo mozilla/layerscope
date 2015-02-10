@@ -56,8 +56,8 @@ LayerScope.LayerBufferRenderer = {
 
   notify: function LR_notify(name, value) {
     if (name == "layer.select") {
-      $(".highlight-pane").removeClass("highlight-pane");
-      var $sprites = $("." + value).addClass("highlight-pane");
+      $(".selected-sprite").removeClass("selected-sprite");
+      var $sprites = $("." + value).addClass("selected-sprite");
       if ($sprites.length == 0) {
         return;
       }
@@ -85,8 +85,8 @@ LayerScope.LayerBufferRenderer = {
     for (let texNode of frame.textureNodes) {
       let tex = this._graph.findTexture(texNode.texID);
 
-      // If this texture had been appended into texrure pane,
-      // skip it. This might happen with RefLayer in the layer tree.
+      // gecko send duplate texutre to the viewer. Workaround in viewer side
+      // and figure out this bug at gecko side later.
       if (texs.indexOf(tex) != -1) {
         continue;
       }
@@ -101,19 +101,23 @@ LayerScope.LayerBufferRenderer = {
       let $sprite = $("<div>").addClass("buffer-sprite")
                               .addClass(texNode.layerRef.low.toString());
 
-      $sprite.append($("<p>" + texNode.name + " &mdash; " +
+      // name + target + size.
+      let $title = $("<div>").addClass("sprite-title");
+      $sprite.append($title);
+      $title.append($("<p>" + texNode.name + " &mdash; " +
                      GLEnumNames[texNode.target] + " &mdash; "
                      + tex.width + "x" + tex.height + "</p>"));
 
+      // layer ID.
       let layerID = null;
       if (texNode.layerRef) {
         layerID = texNode.layerRef.low;
         $sprite.attr("data-layer-id", layerID.toString());
-        $sprite.append($("<p>Layer " + LayerScope.utils.hex8(layerID) + "</p>"));
+        $title.append($("<p>Layer " + LayerScope.utils.hex8(layerID) + "</p>"));
       }
 
-      let cs = $("<canvas>").addClass("texture-canvas")
-                            .addClass("background-" + LayerScope.Config.background)[0];
+      // Draw image.
+      let cs = $("<canvas>").addClass("background-" + LayerScope.Config.background)[0];
       cs.width = tex.width;
       cs.height = tex.height;
       let cx = cs.getContext("2d");
@@ -136,14 +140,16 @@ LayerScope.LayerBufferRenderer = {
       let $sprite = $("<div>").addClass("buffer-sprite")
                               .addClass(o.layerRef.low.toString());
 
-      $sprite.append($("<p>" + o.type + " Layer " + LayerScope.utils.hex8(o.layerRef.low) +
+      let $title = $("<div>").addClass("sprite-title");
+      $sprite.append($title);
+      $title.append($("<p>" + o.type + " Layer " +
+                     LayerScope.utils.hex8(o.layerRef.low) +
                      " &mdash; " + o.width + "x" + o.height + "</p>"));
       let layerID = o.layerRef.low;
-      $sprite.attr("data-layer-id", layerID.toString());
+      $title.attr("data-layer-id", layerID.toString());
 
       if (o.type == "Color") {
-        var $bgdiv = $("<div>").addClass("layer-canvas")
-                               .addClass("background-" + LayerScope.Config.background);
+        var $bgdiv = $("<div>").addClass("background-" + LayerScope.Config.background);
         let colordiv = $("<div>").width(o.width).height(o.height)
                                  .css("background-color", LayerScope.utils.rgbaToCss(o.color));
         $bgdiv.append(colordiv);

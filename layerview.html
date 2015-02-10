@@ -60,8 +60,9 @@
       }
 
       .buffer-sprite {
+        background: LightGray;
         font-size: 12px;
-        padding: 5px;
+        /*padding: 5px;*/
         border: 1px solid gray;
         box-shadow: 3px 3px 3px gray;
         margin: 5px;
@@ -70,13 +71,15 @@
         font-weight: bold;
       }
 
-      .buffer-sprite > p {
+      .sprite-title {
+        border-bottom: 1px solid gray;
+        padding: 5px;
         margin: 0px;
+        width: calc(100% - 10px);
       }
 
-      .texture-canvas,
-      .layer-canvas {
-        text-align: center;
+      .sprite-title p {
+        margin: 0px;
       }
 
       .background-pattern {
@@ -91,13 +94,8 @@
         background: black;
       }
 
-      .nonwrap{
-        white-space: nowrap;
-      }
-
-      .highlight-pane {
-        box-shadow: 3px 3px 3px red;
-        border: 1px solid red;
+      .selected-sprite {
+        background: SteelBlue;
       }
 
       #left-hud-pane {
@@ -123,35 +121,37 @@
         font-size: 15px;
       }
 
-      #left-data-pane {
+      .data-pane {
         position: absolute;
-        width:20%;
-        left:0%;
-        top: 120px;
-      }
-      #right-data-pane {
-        position: absolute;
-        left:20%;
-        width:80%;
-        top: 120px;
+        box-sizing: border-box;
+        border:none;
+        display: inline-block;
+        background: lightgray;
       }
 
-      #left-data-pane .invisible-layer {
+      #left-data-pane {
+        top: 120px;
+        left:0%;
+        width: 20%;
+        height: 100%;
+      }
+
+      #right-data-pane {
+        top: 120px;
+        left:20%;
+        width:80%;
+        height: 100%;
+      }
+
+      .invisible-layer {
         color: LightGray;
       }
 
-      #left-data-pane .visible-layer {
+      .visible-layer {
         color: Black;
       }
 
-      .resizable {
-        display: inline-block;
-        height: 100%;
-        /*border-radius: 10px;*/
-        background-color: lightgray;
-      }
-
-      .resizable h3 {
+      .data-pane h3 {
         border-right-style: none;
         border-left-style: none;
         text-align: center;
@@ -174,21 +174,22 @@
       }
 
       #tree-pane {
+        margin: 5px;
         background-color: white;
         overflow: auto;
+        width: calc(100% - 10px);
         height: calc(50% - 30px);
       }
 
       .dataTables_wrapper {
-        margin-top: 5px;
+        margin: 5px;
+        width: calc(100% - 10px);
         height: calc(50% - 5px);
       }
 
       .resizable-left {
         width: 20%;
         overflow: hidden;
-        /*overflow-y: scroll;
-        overflow-x: hidden;*/
       }
 
       .resizable-right {
@@ -197,10 +198,12 @@
       }
 
       #texture-container {
+        margin: 5px 5px 5px 0px;
         box-sizing: border-box;
+        background: white;
         position: relative;
-        width: 100%;
-        padding: 5px;
+        width: calc(100% - 5px);
+        border: 1px solid gray;
         height: calc(100% - 30px);
         overflow: auto;
       }
@@ -223,9 +226,11 @@
         z-index: 1;
         padding: 5px;
       }
+
       #setting-options > input {
         margin: 5px;
       }
+
       #main-toolbar {
         padding: 3px;
         margin-bottom: 5px;
@@ -259,20 +264,13 @@
         height: 10px;
       }
 
-      .ui-resizeable-e {
-        cursor: e-resize;
-        width: 100px;
-        right: -5px;
-        top: 0;
-        height: 100%;
+      /* Enlarge resizable hit region */
+      .ui-resizable-e {
+        width: 20px;
       }
 
-      .ui-resizeable-s {
-        cursor: s-resize;
-        bottom: -5px;
-        height: 100px;
-        left: 0;
-        width: 100%;
+      .ui-resizable-s {
+        height: 20px;
       }
 
       .ui-dialog .ui-dialog-title {
@@ -285,7 +283,6 @@
       .no-close .ui-dialog-titlebar-close {
         display: none;
       }
-
 
       /* Borrow from bootstrap */
       .button-danger-color {
@@ -334,9 +331,9 @@
         </div>
       </div>
     </div>
-    <div id="left-data-pane" class="resizable resizable-left">
+    <div id="left-data-pane" class="data-pane ui-widget-content resizable-left">
       <h3 class="ui-widget-header">Layer Tree</h3>
-      <div id="tree-pane" class="resizable resizable-top"></div>
+      <div id="tree-pane" class="resizable-top"></div>
       <table id="property-table" class="display" cellspacing="0">
         <thead>
           <tr>
@@ -347,7 +344,7 @@
         </thead>
       </table>
     </div>
-    <div id="right-data-pane" class="resizable resizable-right">
+    <div id="right-data-pane" class="data-pane resizable-right">
       <h3 class="ui-widget-header">Layer Image</h3>
       <div id="texture-container"></div>
     </div>

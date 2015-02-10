@@ -508,8 +508,8 @@ $(function() {
   });
 
   $(".resizable-left").resizable({
-    autoHide: true,
-    handles: 'e',
+  //  autoHide: true,
+  //  handles: 'e',
     resize: function(e, ui) {
       var parent = ui.element.parent();
       var remainingSpace = parent.width() - ui.element.outerWidth(),
@@ -531,7 +531,6 @@ $(function() {
   });
 
   $("#tree-pane").resizable({
-    containment: "#left-data-pane",
     autoHide: true,
     handles: 's',
     resize: function(e, ui) {

@@ -81,16 +81,8 @@ LayerScope.LayerBufferRenderer = {
   },
 
   _drawTextureLayer: function LR_drawTextureLayer(frame, $panel) {
-    var texs = [];
     for (let texNode of frame.textureNodes) {
       let tex = this._graph.findTexture(texNode.texID);
-
-      // gecko send duplate texutre to the viewer. Workaround in viewer side
-      // and figure out this bug at gecko side later.
-      if (texs.indexOf(tex) != -1) {
-        continue;
-      }
-      texs.push(tex);
 
       if (tex === undefined || tex.imageData === undefined) {
         //TODO

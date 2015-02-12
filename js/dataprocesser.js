@@ -144,7 +144,7 @@ LayerScope.ProtoDataProcesser = {
   _getTexData: function R_getImage(ptexture) {
     // Create a texture in texture pool, if need.
     var source = new Uint8Array(ptexture.data.toArrayBuffer());
-    let key = this._graph.texturePool.createTexture(source,
+    let key = this._graph.imageDataPool.createTexture(source,
                                              ptexture.width,
                                              ptexture.height,
                                              ptexture.dataformat,

@@ -102,12 +102,12 @@ LayerScope.TextureNode = function(name, target, texID, layerRef, contextRef) {
   this.texID = texID;
 }
 
-LayerScope.TexturePool = function () {
+LayerScope.ImageDataPool = function () {
   this._cacheImages = {};
   this._ctx = $("<canvas>").width(1).height(1)[0].getContext("2d");
 };
 
-LayerScope.TexturePool.prototype.findTexture = function (hash) {
+LayerScope.ImageDataPool.prototype.findImage = function (hash) {
   if (!hash) {
     return null;
   }
@@ -116,25 +116,22 @@ LayerScope.TexturePool.prototype.findTexture = function (hash) {
   return this._cacheImages[hash];
 }
 
-LayerScope.TexturePool.prototype.addTexture = function (key, value, width, height) {
+LayerScope.ImageDataPool.prototype.addImageData = function (key, value) {
   if (this._cacheImages[key] !== undefined) {
-    console.log("TexturePool hash collision detected");
+    console.log("ImageDataPool hash collision detected");
     return;
   }
-  var texture = { imageData: value, width: width, height: height };
-  this._cacheImages[key] = texture;
+
+  this._cacheImages[key] = value;
 }
 
-LayerScope.TexturePool.prototype.createTexture = function (source, width, height, format, stride) {
+LayerScope.ImageDataPool.prototype.createTexture = function (source, width, height, format, stride) {
   var hash = sha1.hash(source);
 
   if (width == 0 || height == 0) {
     console.log("Viewer receive invalid texture info.");
     return null;
   }
-  var texture = {};
-  texture.width = width;
-  texture.height = height;
 
   //  Cache matchs.
   if (hash in this._cacheImages) {
@@ -152,13 +149,13 @@ LayerScope.TexturePool.prototype.createTexture = function (source, width, height
   }
 
   // Create a buffer.
-  texture.imageData = this._ctx.createImageData(width, height);
+  var imageData = this._ctx.createImageData(width, height);
 
   // Fill this buffer by source image.
   if (stride == width * 4) {
-    texture.imageData.data.set(source);
+    imageData.data.set(source);
   } else {
-    let dstData = texture.imageDaga.data;
+    let dstData = imageDaga.data;
     for (let j = 0; j < height; j++) {
       for (let i = 0; i < width; i++) {
         dstData[j * width * 4 + i * 4 + 0] = source[j * stride + i * 4 + 0];
@@ -168,7 +165,7 @@ LayerScope.TexturePool.prototype.createTexture = function (source, width, height
       }
     }
   }
-  this._cacheImages[hash] = texture;
+  this._cacheImages[hash] = imageData;
 
   return hash;
 };
@@ -213,3 +210,30 @@ LayerScope.TaskChain = {
     this._currentTask = 0;
   }
 };
+
+LayerScope.MessageCenter = {
+  _handlers: {},
+
+  subscribe: function RMC_subscribe(msgName, o) {
+    if (!(msgName in this._handlers)) {
+      this._handlers[msgName] = [];
+    }
+
+    if (!(o in this._handlers[msgName])) {
+      this._handlers[msgName].push(o);
+    }
+  },
+
+  fire: function RMC_fire(msgName, value) {
+    if (!(msgName in this._handlers)) {
+      return;
+    }
+
+    let handlers = this._handlers[msgName];
+    for (let i = 0; i < handlers.length; i++) {
+      let o = handlers[i];
+      o.notify(msgName, value);
+    }
+  }
+};
+

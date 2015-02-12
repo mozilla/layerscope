@@ -61,7 +61,7 @@ LayerScope.Storage = {
     LayerScope.TaskChain.empty();
     this._progressShow(totalTask, "Saving");
 
-    // Zip each image in TexturePool in a file.
+    // Zip each image in ImageDataPool in a file.
     var zip = new JSZip();
     var canvas = $("<canvas>")[0];
     var ctx = canvas.getContext("2d");
@@ -70,10 +70,10 @@ LayerScope.Storage = {
       let tex = pool._cacheImages[key];
       LayerScope.TaskChain.addTask(function(_arg) {
         let key = _arg[0];
-        let tex = _arg[1];
-        canvas.width = tex.width;
-        canvas.height = tex.height;
-        ctx.putImageData(tex.imageData, 0, 0);
+        let imageData = _arg[1];
+        canvas.width = imageData.width;
+        canvas.height = imageData.height;
+        ctx.putImageData(imageData, 0, 0);
         let dataURL = canvas.toDataURL("image/png");
         zip.file("image/" + key + ".png",
                  // remove MIME type.
@@ -121,7 +121,6 @@ LayerScope.Storage = {
     });
 
     var totalTask = imageFiles.length/*Load texture*/ + 1/*Load layertree*/;
-    this._progressShow(totalTask, "Loading");
 
     LayerScope.TaskChain.empty();
 
@@ -129,13 +128,18 @@ LayerScope.Storage = {
     var frames = null;
 
     // Reconstruct layer-tree. Easy.
+    var layerTree = zip.file("layertree.json");
+    if (!layerTree) {
+      throw "Invalid saved file";
+    }
     LayerScope.TaskChain.addTask(function(index) {
-      frames = JSON.parse(zip.file("layertree.json").asText());
+      this._progressShow(totalTask, "Loading");
+      frames = JSON.parse(layerTree.asText());
       this._progressAdvance();
     }.bind(this), ++taskIndex);
 
-    // Reconstruct TexturePool.
-    var pool = new LayerScope.TexturePool();
+    // Reconstruct ImageDataPool.
+    var pool = new LayerScope.ImageDataPool();
 
     // image.load is not a sync call. Create a promise and return it
     // to the caller. The caller should define "then" function to
@@ -152,7 +156,7 @@ LayerScope.Storage = {
           let dataURL = "data:image/png;base64," +
                         JSZip.base64.encode(imageFiles[index].asBinary());
 
-          // Generate texture object and put it into TexturePool.
+          // Generate texture object and put it into ImageDataPool.
           var img = $("<img>", { src: dataURL });
           function loadImage(loader) {
             img.load(function() {
@@ -162,7 +166,7 @@ LayerScope.Storage = {
               ctx.drawImage(this, 0, 0);
               let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
-              pool.addTexture(key, imageData, this.width, this.height);
+              pool.addImageData(key, imageData);
               loader._progressAdvance();
               if (++loaded === imageFiles.length) {
                 loader._progressHide();

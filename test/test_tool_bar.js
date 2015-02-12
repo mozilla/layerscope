@@ -3,6 +3,33 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+QUnit.test("test_zoom", function(assert) {
+  var $zoomIn = $("<button>");
+  var $zoomOut = $("<button>");
+  var $zoom1 = $("<button>");
+
+  LayerScope.ZoomController.attach($zoomIn, $zoom1, $zoomOut);
+
+  var ratio = LayerScope.ZoomController.ratio;
+  $zoomIn.trigger("click"); // zoom+
+  $zoomIn.trigger("click"); // zoom+
+  $zoomOut.trigger("click"); // zoom-
+  $zoomOut.trigger("click"); // zoom-
+
+  assert.equal(ratio, LayerScope.Config.ratio,
+               "We expect ratio does not change");
+
+  $zoomIn.trigger("click"); // zoom+
+  $zoom1.trigger("click"); // zoom 1:1
+  assert.equal(ratio, LayerScope.Config.ratio,
+               "We expect ratio does not change");
+
+  $zoomOut.trigger("click"); // zoom-
+  $zoom1.trigger("click"); // zoom 1:1
+  assert.equal(ratio, LayerScope.Config.ratio,
+               "We expect ratio does not change");
+});
+
 QUnit.test("test_frameController", function(assert) {
   var controller = LayerScope.FrameController;
 

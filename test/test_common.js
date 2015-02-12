@@ -1,12 +1,10 @@
-
 /* vim:set ts=2 sw=2 sts=2 et: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 QUnit.test("test_texturepool", function(assert) {
-
-  var pool = new LayerScope.TexturePool();
+  var pool = new LayerScope.ImageDataPool();
   var width = 1;
   var stride = 4;
   var height = 1;
@@ -23,11 +21,13 @@ QUnit.test("test_texturepool", function(assert) {
   var key3 = pool.createTexture(source, width, height, format, stride);
   assert.notEqual(key3, key1, "We expect key1 is not equal to key3");
 
-  var texture = pool.findTexture(key1);
-  assert.notEqual(texture, null, "We expect texture is not null");
+  var image = pool.findImage(key1);
+  assert.notEqual(image, null, "We expect image is not null");
+  assert.equal(image.width, 1, "We expect image.width is 1");
+  assert.equal(image.height, 1, "We expect image.height is 1");
 
-  var texture2 = pool.findTexture(0);
-  assert.equal(texture2, null, "We expect texture2 is null");
+  var image2 = pool.findImage(0);
+  assert.equal(image2, null, "We expect image2 is null");
 });
 
 QUnit.test("test_taskchain", function(assert) {
@@ -52,4 +52,33 @@ QUnit.test("test_taskchain", function(assert) {
   }
 
   LayerScope.TaskChain.start();
+});
+
+QUnit.test("test_messagecenter", function(assert) {
+  var Mock1Listener = {
+    notify: function (msg, value) {
+      if (msg === "msg1") {
+        assert.equal(value, 1, "We expect value to be 1");
+      } else {
+        assert.ok(false, "Unexpect value");
+      }
+    }
+  };
+
+  var Mock2Listener = {
+    notify: function (msg, value) {
+      if (msg === "msg2") {
+        assert.equal(value, 2, "We expect value to be 2");
+      } else {
+        assert.ok(false, "Unexpect value");
+      }
+    }
+  };
+
+  assert.expect(2);
+  LayerScope.MessageCenter.subscribe("msg1", Mock1Listener);
+  LayerScope.MessageCenter.subscribe("msg2", Mock2Listener);
+
+  LayerScope.MessageCenter.fire("msg1", 1);
+  LayerScope.MessageCenter.fire("msg2", 2);
 });

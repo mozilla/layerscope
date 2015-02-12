@@ -18,32 +18,6 @@ GLEnumNames[GL_TEXTURE_2D] = "TEXTURE_2D";
 GLEnumNames[GL_TEXTURE_EXTERNAL] = "TEXTURE_EXTERNAL";
 GLEnumNames[GL_TEXTURE_RECTANGLE] = "TEXTURE_RECTANGLE";
 
-LayerScope.RendererLocalMessageCenter = {
-  _handlers: {},
-
-  subscribe: function RMC_subscribe(msgName, o) {
-    if (!(msgName in this._handlers)) {
-      this._handlers[msgName] = [];
-    }
-
-    if (!(o in this._handlers[msgName])) {
-      this._handlers[msgName].push(o);
-    }
-  },
-
-  fire: function RMC_fire(msgName, value) {
-    if (!(msgName in this._handlers)) {
-      return;
-    }
-
-    let handlers = this._handlers[msgName];
-    for (let i = 0; i < handlers.length; i++) {
-      let o = handlers[i];
-      o.notify(msgName, value);
-    }
-  }
-};
-
 /*
  * Render layer buffer of the selected frame on the screen.
  *
@@ -51,7 +25,7 @@ LayerScope.RendererLocalMessageCenter = {
 LayerScope.LayerBufferRenderer = {
   init: function TR_init(graph) {
     this._graph = graph;
-    LayerScope.RendererLocalMessageCenter.subscribe("layer.select", this);
+    LayerScope.MessageCenter.subscribe("layer.select", this);
   },
 
   notify: function LR_notify(name, value) {
@@ -81,18 +55,10 @@ LayerScope.LayerBufferRenderer = {
   },
 
   _drawTextureLayer: function LR_drawTextureLayer(frame, $panel) {
-    var texs = [];
     for (let texNode of frame.textureNodes) {
-      let tex = this._graph.findTexture(texNode.texID);
+      let imageData = this._graph.findImage(texNode.texID);
 
-      // gecko send duplate texutre to the viewer. Workaround in viewer side
-      // and figure out this bug at gecko side later.
-      if (texs.indexOf(tex) != -1) {
-        continue;
-      }
-      texs.push(tex);
-
-      if (tex === undefined || tex.imageData === undefined) {
+      if (imageData === undefined) {
         //TODO
         //Show link broken image.
         continue;
@@ -106,7 +72,7 @@ LayerScope.LayerBufferRenderer = {
       $sprite.append($title);
       $title.append($("<p>" + texNode.name + " &mdash; " +
                      GLEnumNames[texNode.target] + " &mdash; "
-                     + tex.width + "x" + tex.height + "</p>"));
+                     + imageData.width + "x" + imageData.height + "</p>"));
 
       // layer ID.
       let layerID = null;
@@ -116,23 +82,43 @@ LayerScope.LayerBufferRenderer = {
         $title.append($("<p>Layer " + LayerScope.utils.hex8(layerID) + "</p>"));
       }
 
-      // Draw image.
-      let cs = $("<canvas>").addClass("background-" + LayerScope.Config.background)[0];
-      cs.width = tex.width;
-      cs.height = tex.height;
-      let cx = cs.getContext("2d");
-
-      cx.putImageData(tex.imageData, 0, 0);
       if (!!layerID){
         $sprite.on("click", function() {
-          LayerScope.RendererLocalMessageCenter.fire("buffer.select",
-                                                     layerID.toString());
+          LayerScope.MessageCenter.fire("buffer.select",
+                                        layerID.toString());
         });
       }
 
+      // Draw image.
+      let cs = this._createCanvas(imageData);
       $sprite.append(cs);
+
+      // Last step, append this new sprite.
       $panel.append($sprite);
     }
+  },
+
+  _createCanvas: function LR_createCanvas(imageData) {
+    let cs = $("<canvas>").addClass("background-" +
+                                      LayerScope.Config.background)[0];
+    cs.width = imageData.width;
+    cs.height = imageData.height;
+    let cx = cs.getContext("2d");
+    cx.putImageData(imageData, 0, 0);
+
+    let ratio = LayerScope.Config.ratio / 100;
+    if (ratio != 100) {
+      let zoomedcs = $("<canvas>").addClass("background-" +
+                                              LayerScope.Config.background)[0];
+      let zoomedcx = zoomedcs.getContext("2d");
+      zoomedcs.width = imageData.width * ratio;
+      zoomedcs.height = imageData.height * ratio;
+      zoomedcx.scale(ratio, ratio);
+      zoomedcx.drawImage(cs,0, 0);
+      return zoomedcs;
+    }
+
+    return cs;
   },
 
   _drawColorLayer: function LR_drawColoerLayer(frame, $panel) {
@@ -149,14 +135,15 @@ LayerScope.LayerBufferRenderer = {
       $title.attr("data-layer-id", layerID.toString());
 
       if (o.type == "Color") {
+        let ratio = LayerScope.Config.ratio / 100;
         var $bgdiv = $("<div>").addClass("background-" + LayerScope.Config.background);
-        let colordiv = $("<div>").width(o.width).height(o.height)
+        let colordiv = $("<div>").width(o.width * ratio).height(o.height * ratio)
                                  .css("background-color", LayerScope.utils.rgbaToCss(o.color));
         $bgdiv.append(colordiv);
       }
 
       $sprite.on("click", function() {
-        LayerScope.RendererLocalMessageCenter.fire("buffer.select", layerID.toString());
+        LayerScope.MessageCenter.fire("buffer.select", layerID.toString());
       });
 
       $sprite.append($bgdiv);
@@ -204,8 +191,8 @@ LayerScope.TreeRenderer = {
         }
       }
     });
-    LayerScope.RendererLocalMessageCenter.subscribe("layer.select", this);
-    LayerScope.RendererLocalMessageCenter.subscribe("buffer.select", this);
+    LayerScope.MessageCenter.subscribe("layer.select", this);
+    LayerScope.MessageCenter.subscribe("buffer.select", this);
 
     this._graph = graph;
   },
@@ -326,7 +313,7 @@ LayerScope.TreeRenderer = {
       if ($li.hasClass("invisible-layer")) {
         $("#jsTreeRoot").jstree(true).deselect_node($li);
       } else {
-        LayerScope.RendererLocalMessageCenter
+        LayerScope.MessageCenter
                   .fire("layer.select", $li.attr("data-layer-id"));
       }
     }).jstree();

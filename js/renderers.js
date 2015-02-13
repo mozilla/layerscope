@@ -56,7 +56,7 @@ LayerScope.LayerBufferRenderer = {
 
   _drawTextureLayer: function LR_drawTextureLayer(frame, $panel) {
     for (let texNode of frame.textureNodes) {
-      let imageData = this._graph.findImage(texNode.texID);
+      let imageData = this._graph.findImage(texNode.contentID);
 
       if (imageData === undefined) {
         //TODO

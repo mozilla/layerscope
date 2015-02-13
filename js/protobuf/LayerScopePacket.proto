@@ -28,6 +28,7 @@ message TexturePacket {
   optional uint32 dataformat = 7;
   optional uint64 glcontext = 8;
   optional bytes data = 9;
+  optional uint32 contentid = 10;
 }
 
 message LayersPacket {

@@ -135,6 +135,16 @@ LayerScope.ProtoDataProcesser = {
                  high: pcolor.layerref.getHighBitsUnsigned()}
     };
   },
+  _getRefTexData: function R_getRefImage(preftexture) {
+    let tn = new LayerScope.TextureNode("name",
+                                        "1",
+                                        preftexture.layerref,
+                                        "2D",
+                                        preftexture.contentid);
+
+    return tn;
+  },
+
   /**
   * Convert raw data buffer into a image
   * @param {ArrayBuffer} data The raw ArrayBuffer
@@ -142,13 +152,15 @@ LayerScope.ProtoDataProcesser = {
   * @return {object} Image data
   */
   _getTexData: function R_getImage(ptexture) {
-    // Create a texture in texture pool, if need.
-    var source = new Uint8Array(ptexture.data.toArrayBuffer());
-    let key = this._graph.imageDataPool.createTexture(source,
-                                             ptexture.width,
-                                             ptexture.height,
-                                             ptexture.dataformat,
-                                             ptexture.stride);
+    if (!!ptexture.data) {
+      var source = new Uint8Array(ptexture.data.toArrayBuffer());
+      this._graph.imageDataPool.createTexture(ptexture.contentid,
+                                              source,
+                                              ptexture.width,
+                                              ptexture.height,
+                                              ptexture.dataformat,
+                                              ptexture.stride);
+    }
 
     //  Create a texture node
     let layerRef = {
@@ -157,12 +169,10 @@ LayerScope.ProtoDataProcesser = {
     };
     let tn = new LayerScope.TextureNode(ptexture.name,
                                         ptexture.target,
-                                        key,
-                                        layerRef,
-                                        ptexture.glcontext);
+                                        ptexture.layerref,
+                                        ptexture.glcontext,
+                                        ptexture.contentid);
 
-    // Associate texure node with texture pool by key.
-    tn.texID = key;
     return tn;
   },
   /**

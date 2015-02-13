@@ -91,7 +91,7 @@ LayerScope.Frame = function (stamp) {
 
 //  Don't append any functions to this object, since we will
 //  serialize/deserialize this object into JSON string.
-LayerScope.TextureNode = function(name, target, texID, layerRef, contextRef) {
+LayerScope.TextureNode = function(name, target, layerRef, contextRef, contentID) {
   this.name = name;
   this.target = target;
 
@@ -99,7 +99,7 @@ LayerScope.TextureNode = function(name, target, texID, layerRef, contextRef) {
   // So that we don't need relink action in LayerScope.Storage.load.
   this.layerRef = layerRef;
   this.contextRef = contextRef;
-  this.texID = texID;
+  this.contentID = contentID;
 }
 
 LayerScope.ImageDataPool = function () {
@@ -107,13 +107,14 @@ LayerScope.ImageDataPool = function () {
   this._ctx = $("<canvas>").width(1).height(1)[0].getContext("2d");
 };
 
-LayerScope.ImageDataPool.prototype.findImage = function (hash) {
-  if (!hash) {
+LayerScope.ImageDataPool.prototype.findImage = function (key) {
+  if (key == null || key == undefined) {
+    console.log("ImageDataPool invalid key");
     return null;
   }
 
-  console.assert(hash in this._cacheImages, "Try to find a key which does not exist.");
-  return this._cacheImages[hash];
+  console.assert(key in this._cacheImages, "Try to find a key which does not exist.");
+  return this._cacheImages[key];
 }
 
 LayerScope.ImageDataPool.prototype.addImageData = function (key, value) {
@@ -125,17 +126,20 @@ LayerScope.ImageDataPool.prototype.addImageData = function (key, value) {
   this._cacheImages[key] = value;
 }
 
-LayerScope.ImageDataPool.prototype.createTexture = function (source, width, height, format, stride) {
-  var hash = sha1.hash(source);
-
+LayerScope.ImageDataPool.prototype.createTexture = function (key, source, width, height, format, stride) {
   if (width == 0 || height == 0) {
-    console.log("Viewer receive invalid texture info.");
+    console.log("ImageDataPool.createTexture: invalid value.");
+    return null;
+  }
+
+  if (key === null ||key === undefined) {
+    console.log("ImageDataPool.createTexture: invalid key.");
     return null;
   }
 
   //  Cache matchs.
-  if (hash in this._cacheImages) {
-    return hash;
+  if (key in this._cacheImages) {
+    return;
   }
 
   // Generate a new cache image for this source.
@@ -165,11 +169,9 @@ LayerScope.ImageDataPool.prototype.createTexture = function (source, width, heig
       }
     }
   }
-  this._cacheImages[hash] = imageData;
 
-  return hash;
+  this._cacheImages[key] = imageData;
 };
-
 
 LayerScope.TaskChain = {
   _tasks: [],

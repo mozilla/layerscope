@@ -315,10 +315,12 @@ LayerScope.Session = {
 
   appendFrame: function SS_appendFrame(frame) {
     let advance = false;
-    if ((this._currentFrame == (this._frames.length - 1)) ||
-        (this._currentFrame == 0 && this._frames.length == 0)) {
-      advance = true;
-    }
+    //if ((this._currentFrame == (this._frames.length - 1)) ||
+    //    (this._currentFrame == 0 && this._frames.length == 0)) {
+    //  advance = true;
+    //}
+    if (this._currentFrame == -1)
+      this._currentFrame = 0;
 
     this._frames.push(frame);
 

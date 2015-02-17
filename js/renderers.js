@@ -224,12 +224,14 @@ LayerScope.TreeRenderer = {
 
       for (let i = 0; i < children.length; i++) {
         if ($(children[i]).attr("data-layer-id") == id) {
-          // deselect original one.
           let ids = $("#jsTreeRoot").jstree('get_selected');
-          $("#jsTreeRoot").jstree(true).deselect_node($("#" + ids[0]));
+          if (ids[0] !== id) {
+            // deselect the original node.
+            $("#jsTreeRoot").jstree(true).deselect_node($("#" + ids[0]));
+            // Select the new node.
+            $("#jsTreeRoot").jstree(true).select_node(children[i]);
+          }
 
-          // According to id, select a new tree node.
-          $("#jsTreeRoot").jstree(true).select_node(children[i]);
           break;
         }
       }
@@ -239,32 +241,23 @@ LayerScope.TreeRenderer = {
   },
 
   _drawProperty: function RT_drawProperty(id) {
-    var layer = function findLayer(node, id) {
-      if (node.value.ptr.low == id)
-        return node;
-
-      for (let child of node.children) {
-        var matched = findLayer(child, id);
-        if (matched) {
-          return matched;
-        }
-      }
-    }(this._graph.frame.layerTree[0], id);
-
     // Clear Layer property table.
     var $table = $("#property-table").DataTable()
     $table.clear();
 
-    // Display properties of the selected layer.
-    var dataSet = [];
-    generateLayerAttributes(layer.value, dataSet);
-    if (dataSet.length > 0) {
-      for (let i = 0; i< dataSet.length; i++) {
-        $table.row.add(dataSet[i]);
+    var layer = LayerScope.FrameUtils.findLayerByID(this._graph.frame, id);
+    if (!!layer) {
+      // Display properties of the selected layer.
+      var dataSet = [];
+      generateLayerAttributes(layer.value, dataSet);
+      if (dataSet.length > 0) {
+        for (let i = 0; i< dataSet.length; i++) {
+          $table.row.add(dataSet[i]);
+        }
       }
-
-      $table.draw();
     }
+
+    $table.draw();
   },
 
   _drawLayerTree: function TR_dumpLayerTree(frame, $pane) {
@@ -311,8 +304,12 @@ LayerScope.TreeRenderer = {
       let $li = $("#" + ids[0]);
 
       if ($li.hasClass("invisible-layer")) {
+        // Deselect and clear property table
         $("#jsTreeRoot").jstree(true).deselect_node($li);
+        LayerScope.MessageCenter
+                  .fire("layer.select", null);
       } else {
+        // Display the property of the selected node.
         LayerScope.MessageCenter
                   .fire("layer.select", $li.attr("data-layer-id"));
       }

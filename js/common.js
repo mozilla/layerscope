@@ -1,7 +1,7 @@
 /* vim:set ts=2 sw=2 sts=2 et: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
- *  * License, v. 2.0. If a copy of the MPL was not distributed with this
- *   * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 // Namespace for LayerScope globals
 if (typeof LayerScope == "undefined" || !LayerScope) {
@@ -80,13 +80,6 @@ LayerScope.utils = {
       title: title,
       modal: true });
   }
-};
-
-LayerScope.Frame = function (stamp) {
-  this.id = stamp || {low: 0, high: 0};
-  this.colors = [];
-  this.layerTree= [];
-  this.textureNodes = [];
 };
 
 //  Don't append any functions to this object, since we will

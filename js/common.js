@@ -100,7 +100,7 @@ LayerScope.ImageDataPool = function () {
   this._ctx = $("<canvas>").width(1).height(1)[0].getContext("2d");
 };
 
-LayerScope.ImageDataPool.prototype.findImage = function (hash) {
+LayerScope.ImageDataPool.prototype.find = function (hash) {
   if (!hash) {
     return null;
   }
@@ -109,7 +109,7 @@ LayerScope.ImageDataPool.prototype.findImage = function (hash) {
   return this._cacheImages[hash];
 }
 
-LayerScope.ImageDataPool.prototype.addImageData = function (key, value) {
+LayerScope.ImageDataPool.prototype.add = function (key, value) {
   if (this._cacheImages[key] !== undefined) {
     console.log("ImageDataPool hash collision detected");
     return;
@@ -117,52 +117,6 @@ LayerScope.ImageDataPool.prototype.addImageData = function (key, value) {
 
   this._cacheImages[key] = value;
 }
-
-LayerScope.ImageDataPool.prototype.createTexture = function (source, width, height, format, stride) {
-  var hash = sha1.hash(source);
-
-  if (width == 0 || height == 0) {
-    console.log("Viewer receive invalid texture info.");
-    return null;
-  }
-
-  //  Cache matchs.
-  if (hash in this._cacheImages) {
-    return hash;
-  }
-
-  // Generate a new cache image for this source.
-  if ((format >> 16) & 1) {
-    // it's lz4 compressed
-    let decompressed = new Uint8Array(stride * height);
-    if (0 > LZ4_uncompressChunk(source, decompressed)) {
-      console.log("Error: uncompression error at: ", rv);
-    }
-    source = decompressed;
-  }
-
-  // Create a buffer.
-  var imageData = this._ctx.createImageData(width, height);
-
-  // Fill this buffer by source image.
-  if (stride == width * 4) {
-    imageData.data.set(source);
-  } else {
-    let dstData = imageDaga.data;
-    for (let j = 0; j < height; j++) {
-      for (let i = 0; i < width; i++) {
-        dstData[j * width * 4 + i * 4 + 0] = source[j * stride + i * 4 + 0];
-        dstData[j * width * 4 + i * 4 + 1] = source[j * stride + i * 4 + 1];
-        dstData[j * width * 4 + i * 4 + 2] = source[j * stride + i * 4 + 2];
-        dstData[j * width * 4 + i * 4 + 3] = source[j * stride + i * 4 + 3];
-      }
-    }
-  }
-  this._cacheImages[hash] = imageData;
-
-  return hash;
-};
-
 
 LayerScope.TaskChain = {
   _tasks: [],
@@ -222,9 +176,9 @@ LayerScope.MessageCenter = {
       return;
     }
 
-    let handlers = this._handlers[msgName];
-    for (let i = 0; i < handlers.length; i++) {
-      let o = handlers[i];
+    var handlers = this._handlers[msgName];
+    for (var i = 0; i < handlers.length; i++) {
+      var o = handlers[i];
       o.notify(msgName, value);
     }
   }

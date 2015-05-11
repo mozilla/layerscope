@@ -8,6 +8,8 @@ if (typeof LayerScope == "undefined" || !LayerScope) {
   LayerScope = {};
 }
 
+LayerScope.PBBuilder = dcodeIO.ProtoBuf.loadProtoFile("js/protobuf/LayerScopePacket.proto");
+
 LayerScope.Config = {
   background: "pattern",
   ratio: 100
@@ -132,14 +134,8 @@ LayerScope.ConnectionManager.prototype = {
   * @param {MessageEvent} evt The message event
   */
   onMessage: function CM_onMessage(evt) {
-    var data = evt.data;
-    LayerScope.utils.ll("socket data: " + data.byteLength);
-
-    var bytebuf = dcodeIO.ByteBuffer.wrap(data);
-    this._graph.process(bytebuf);
-
-    LayerScope.utils.ll("finished processing, offset now: " + bytebuf.offset +
-                        ", buffer limit: " + bytebuf.limit);
+    //var bytebuf = dcodeIO.ByteBuffer.wrap(evt.data);
+    this._graph.process(evt.data);
   },
 
   /**
@@ -179,8 +175,7 @@ LayerScope.CommandHandler = {
 
   get cmdPacket() {
     if (!this._cmdPacket) {
-      var builder = LayerScope.Session.pbbuilder;
-      this._cmdPacket = builder.build("mozilla.layers.layerscope.CommandPacket");
+      this._cmdPacket = LayerScope.PBBuilder.build("mozilla.layers.layerscope.CommandPacket");
     }
     return this._cmdPacket;
   },
@@ -247,7 +242,7 @@ LayerScope.Session = {
   },
 
   findImage: function SS_findImage(id) {
-    return this._imageDataPool.findImage(id);
+    return this._imageDataPool.find(id);
   },
 
   get imageDataPool() {
@@ -300,13 +295,6 @@ LayerScope.Session = {
     return this._frames;
   },
 
-  get pbbuilder() {
-    if (!this._pbufbuilder) {
-      this._pbufbuilder = dcodeIO.ProtoBuf.loadProtoFile("js/protobuf/LayerScopePacket.proto");
-    }
-    return this._pbufbuilder;
-  },
-
   /**
   * Convert frames to JSON
   * @param {object} frameData
@@ -339,29 +327,30 @@ LayerScope.Session = {
       this._timerID = null;
     }
 
+    var self = this;
     this._timerID = setTimeout(function() {
       if (frameIndex === undefined) {
         // There is no frame at all.
-        if (this._currentFrame == -1) {
+        if (self._currentFrame == -1) {
           return;
         }
 
         // Force render current frame again.
-        frameIndex = this._currentFrame;
+        frameIndex = self._currentFrame;
       } else {
-        console.assert(frameIndex < this._frames.length,
+        console.assert(frameIndex < self._frames.length,
                        "LayerScope.Session.display: Invalid frame index");
-        if (this._currentFrame == frameIndex) {
+        if (self._currentFrame == frameIndex) {
           return;
         }
 
-        this._currentFrame = frameIndex;
-        LayerScope.FrameController.update(frameIndex, this._frames.length);
+        self._currentFrame = frameIndex;
+        LayerScope.FrameController.update(frameIndex, self._frames.length);
       }
 
-      LayerScope.RendererNode.input(this._frames[frameIndex]);
-      this._timerID = null;
-    }.bind(this), 0);
+      LayerScope.RendererNode.input(self._frames[frameIndex]);
+      self._timerID = null;
+    }, 0);
   },
 
   process: function SS_process(bytes) {

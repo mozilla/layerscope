@@ -21,12 +21,12 @@ QUnit.test("test_texturepool", function(assert) {
   var key3 = pool.createTexture(source, width, height, format, stride);
   assert.notEqual(key3, key1, "We expect key1 is not equal to key3");
 
-  var image = pool.findImage(key1);
+  var image = pool.find(key1);
   assert.notEqual(image, null, "We expect image is not null");
   assert.equal(image.width, 1, "We expect image.width is 1");
   assert.equal(image.height, 1, "We expect image.height is 1");
 
-  var image2 = pool.findImage(0);
+  var image2 = pool.find(0);
   assert.equal(image2, null, "We expect image2 is null");
 });
 

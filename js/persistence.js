@@ -166,7 +166,7 @@ LayerScope.Storage = {
               ctx.drawImage(this, 0, 0);
               let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
-              pool.addImageData(key, imageData);
+              pool.add(key, imageData);
               loader._progressAdvance();
               if (++loaded === imageFiles.length) {
                 loader._progressHide();

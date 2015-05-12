@@ -17,6 +17,15 @@ LayerScope.Frame = function (stamp) {
   this.layerTree= [];
   this.textureNodes = [];
 };
+/*
+LayerScope.Frame.prototype.toJSON = function (name) {
+  return JSON.stringify({
+    id: this.id,
+    colors: this.colors,
+    layerTree: this.layerTree,
+    texs: this.textureNodes
+  });
+};*/
 
 /*
  * A utility to iterate frame object .
@@ -28,7 +37,7 @@ LayerScope.FrameUtils = {
       return;
     }
 
-    for (let root of frame.layerTree) {
+    for (var root of frame.layerTree) {
       var layer = function findByID(node) {
         if (node.value.ptr.low == layerID) {
           return node;
@@ -38,8 +47,8 @@ LayerScope.FrameUtils = {
           return;
         }
 
-        for (let child of node.children) {
-          let layer = findByID(child);
+        for (var child of node.children) {
+          var layer = findByID(child);
           if (layer !== undefined) {
             return layer;
           }

@@ -18,7 +18,24 @@ LayerScope.ZoomController = {
     return this._ratioRange[this._ratio];
   },
 
-  attach: function FC_attach($zoomIn, $zoom_1, $zoomOut) {
+  attach: function FC_attach($heatMap, $zoomIn, $zoomOne, $zoomOut) {
+    // Heat-map button
+    let viewStyle = "2D";
+    $heatMap.button()
+      .on("click", function(event) {
+        if (viewStyle == "2D") {
+          LayerScope.MessageCenter.fire("buffer.view", "3D");
+          viewStyle = "3D";
+        } else {
+          LayerScope.MessageCenter.fire("buffer.view", "2D");
+          viewStyle = "2D";
+        }
+
+        LayerScope.Session.setCurrentFrame();  
+      });
+    //$heatMap.css("background-image", "url(css/zoom-in.png)");
+
+    // Zoom-in button
     $zoomIn.button()
       .on("click", function(event) {
         $zoomOut.button("option", "disabled", false);
@@ -30,11 +47,12 @@ LayerScope.ZoomController = {
 
         LayerScope.ZoomController._ratio++;
         LayerScope.Config.ratio = LayerScope.ZoomController._ratioRange[ratio];
-        LayerScope.Session.display();
+        LayerScope.Session.setCurrentFrame();
       });
     $zoomIn.css("background-image", "url(css/zoom-in.png)");
 
-    $zoom_1.button()
+    // 100% button
+    $zoomOne.button()
       .on("click", function(event) {
         $zoomIn.button("option", "disabled", false);
         $zoomOut.button("option", "disabled", false);
@@ -45,10 +63,11 @@ LayerScope.ZoomController = {
 
         LayerScope.ZoomController._ratio = 3;
         LayerScope.Config.ratio = LayerScope.ZoomController._ratioRange[3];
-        LayerScope.Session.display();
+        LayerScope.Session.setCurrentFrame();
       });
-    $zoom_1.css("background-image", "url(css/zoom-1.png)");
+    $zoomOne.css("background-image", "url(css/zoom-1.png)");
 
+    // Zoom-out button.
     $zoomOut.button()
       .on("click", function(event) {
         $zoomIn.button("option", "disabled", false);
@@ -60,13 +79,13 @@ LayerScope.ZoomController = {
 
         LayerScope.ZoomController._ratio--;
         LayerScope.Config.ratio = LayerScope.ZoomController._ratioRange[ratio];
-        LayerScope.Session.display();
+        LayerScope.Session.setCurrentFrame();
       });
     $zoomOut.css("background-image", "url(css/zoom-out.png)");
 
     // Enable tool buttons by default.
     $zoomIn.button("option", "disabled", false);
-    $zoom_1.button("option", "disabled", false);
+    $zoomOne.button("option", "disabled", false);
     $zoomOut.button("option", "disabled", false);
   }
 };
@@ -93,7 +112,7 @@ LayerScope.FrameController = {
         this._userSelection = true;
       }.bind(this),
       stop: function (event, ui) {
-        LayerScope.Session.display(ui.value);
+        LayerScope.Session.setCurrentFrame(ui.value);
       }
     });
 
@@ -121,7 +140,7 @@ LayerScope.FrameController = {
       this._$slider.slider("option", "value", --value);
     }
 
-    LayerScope.Session.display(value);
+    LayerScope.Session.setCurrentFrame(value);
     this._updateInfo(value, max);
   },
 

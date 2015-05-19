@@ -67,23 +67,8 @@ var boundaryFS = "\
   }\
 ";
 
-// TBR
-var fragmentShader = "\
-precision mediump float;\
-\
-void main(void) {\
-  gl_FragColor = vec4(1.0, 1.0, 1.0, 0.2);\
-}";
-
-var vertextShader = "\
-attribute vec3 aCoord;\
-\
-uniform mat4 uLayerTransform;\
-uniform mat4 uMatrixProj;\
-\
-void main(void) {\
-  gl_Position = uMatrixProj * uLayerTransform * vec4(aCoord, 1.0);\
-}";
+LayerScope.DrawTesting = false;
+LayerScope.DrawLog = false;
 
 LayerScope.ThreeDViewImp = {
   gl: null,
@@ -123,65 +108,41 @@ LayerScope.ThreeDViewImp = {
     gl.useProgram(this.boundaryProgram);
     gl.uniformMatrix4fv(this.boundaryProgram.uMatrixProj, false, uMatrixProj);
 
-    if (frame == undefined) {
+    if (frame == undefined && LayerScope.DrawTesting) {
       fakeData();
     };
 
-    console.log("===================== Frame begin ======================");
-    console.log("Totla draws = " + frame.draws.length);
-    // Draw quads.
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
-    for (let draw of frame.draws) {
-      // Matrix4x4.
-      var uLayerTransform = new Float32Array(draw.mvMatrix, draw.mvOffset, 16);
-      /*var uLayerTransform = [
-      1, 0, 0, 0,
-      0, 1, 0, 0,
-      0, 0, 1, 0,
-      0, 0, 0, 1
-      ];*/
-      var uRenderTargetOffset = new Float32Array([draw.offsetX, draw.offsetY, 0.0, 0.0]);
-      // Sender may not always send an array with 16 items.
-      var uLayerRects = new Float32Array(16);
-      draw.layerRect.forEach(function (element, index) {
-        uLayerRects[index * 4] = element.x;
-        uLayerRects[index * 4 + 1] = element.y;
-        uLayerRects[index * 4 + 2] = element.w;
-        uLayerRects[index * 4 + 3] = element.h;
-      });
-      console.assert(draw.totalRects > 0 && draw.totalRects <= 4);
-      this._drawQuad(this.gl, uLayerTransform, uRenderTargetOffset, uLayerRects, draw.totalRects);
+    self = this;
+    function drawLayers(gl, drawCall) {
+      for (let draw of frame.draws) {
+        // Matrix4x4.
+        var uLayerTransform = new Float32Array(draw.mvMatrix);
+        var uRenderTargetOffset = new Float32Array([draw.offsetX, draw.offsetY, 0.0, 0.0]);
+        // Sender may not always send an array with 16 items.
+        var uLayerRects = new Float32Array(16);
+        draw.layerRect.forEach(function (element, index) {
+          uLayerRects[index * 4] = element.x;
+          uLayerRects[index * 4 + 1] = element.y;
+          uLayerRects[index * 4 + 2] = element.w;
+          uLayerRects[index * 4 + 3] = element.h;
+        });
+        console.assert(draw.totalRects > 0 && draw.totalRects <= 4);
+        drawCall.apply(self, [gl, uLayerTransform, uRenderTargetOffset, uLayerRects, draw.totalRects]);
+      }
     }
 
-    // Draw boundary of each quad.
+    // Draw quads.
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+    drawLayers(gl, this._drawQuad);
+
+    // Draw a boundary around each quad.
     gl.blendFunc(gl.ONE, gl.ZERO);
     gl.useProgram(this.boundaryProgram);
     gl.lineWidth(1.0);
-    for (let draw of frame.draws) {
-      // Matrix4x4.
-      var uLayerTransform = new Float32Array(draw.mvMatrix, draw.mvOffset, 16);
-      /*var uLayerTransform = [
-      1, 0, 0, 0,
-      0, 1, 0, 0,
-      0, 0, 1, 0,
-      0, 0, 0, 1
-      ];*/
-      var uRenderTargetOffset = new Float32Array([draw.offsetX, draw.offsetY, 0.0, 0.0]);
-      // Sender may not always send an array with 16 items.
-      var uLayerRects = new Float32Array(16);
-      draw.layerRect.forEach(function (element, index) {
-        uLayerRects[index * 4] = element.x;
-        uLayerRects[index * 4 + 1] = element.y;
-        uLayerRects[index * 4 + 2] = element.w;
-        uLayerRects[index * 4 + 3] = element.h;
-      });
-
-      this._drawBoundary(this.gl, uLayerTransform, uRenderTargetOffset, uLayerRects);
-    }
+    drawLayers(gl, this._drawBoundary);
   },
 
   _drawQuad: function TDV_drawQuad(gl, uMatrixMV, uRenderTargetOffset, uLayerRects, quads) {
-    // Draw heat quad.
     gl.useProgram(this.layerProgram);
     gl.bindBuffer(gl.ARRAY_BUFFER, this.quadVBO);
     gl.vertexAttribPointer(this.layerProgram.aCoord, 4, gl.FLOAT, false, 0, 0);
@@ -211,19 +172,15 @@ LayerScope.ThreeDViewImp = {
     gl.uniform4f(this.boundaryProgram.uColor, 1.0, 0.0, 0.0, 1.0);
 
     gl.drawElements(gl.LINE_STRIP, 4, gl.UNSIGNED_SHORT, 0);
-    /*console.log("uMatrixMV 1= " + uMatrixMV[0] + "," + uMatrixMV[1] + "," + uMatrixMV[2] + ","+ uMatrixMV[3]+ "," + uMatrixMV[4] + "," + uMatrixMV[5] + "," + uMatrixMV[6] + ","+ uMatrixMV[7] + "," + uMatrixMV[8] + "," + uMatrixMV[9] + "," + uMatrixMV[10] + ","+ uMatrixMV[11]+ "," + uMatrixMV[12] + "," + uMatrixMV[13] + "," + uMatrixMV[14] + ","+ uMatrixMV[15]);
-    console.log("x = " + uLayerRects[0] + ". y = "+ uLayerRects[1] + ". w = " + uLayerRects[2] +". h = " + uLayerRects[3]);*/
+
+    if (LayerScope.DrawLog) {
+      console.log("uMatrixMV 1= " + uMatrixMV[0] + "," + uMatrixMV[1] + "," + uMatrixMV[2] + ","+ uMatrixMV[3]+ "," + uMatrixMV[4] + "," + uMatrixMV[5] + "," + uMatrixMV[6] + ","+ uMatrixMV[7] + "," + uMatrixMV[8] + "," + uMatrixMV[9] + "," + uMatrixMV[10] + ","+ uMatrixMV[11]+ "," + uMatrixMV[12] + "," + uMatrixMV[13] + "," + uMatrixMV[14] + ","+ uMatrixMV[15]);
+      console.log("x = " + uLayerRects[0] + ". y = "+ uLayerRects[1] + ". w = " + uLayerRects[2] +". h = " + uLayerRects[3]);
+    }
   },
 
   deactive: function TDV_deactive($panel) {
-    var gl = this.gl;
-
     $panel.empty();
-
-    if (this.quadVBO) {
-      gl.deleteBuffer(1, this.quadVBO);
-      this.quadVBO = null;
-    }
   },
 
   active: function TDV_active($panel) {
@@ -360,6 +317,8 @@ LayerScope.ThreeDViewImp = {
 
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
   },
+
+  // Use for testing only. Remove this fumction later.
   fakeData: function THD_fakeData(frame) {
     frame = {};
     var node1 = {};
@@ -567,8 +526,10 @@ LayerScope.LayerBufferRenderer = {
     LayerScope.MessageCenter.subscribe("buffer.view", this);
 
     // test code.
-    //this.begin();
-    //this.input();
+    if (LayerScope.DrawTesting) {
+      this.begin();
+      this.input();
+    }
   },
 
   notify: function LR_notify(name, value) {

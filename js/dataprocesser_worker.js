@@ -66,7 +66,6 @@ LayerWorker.PBDataProcesser = {
         break;
       case LayerWorker.PBPacket.DataType.DRAW:
       if (pbuffer.draw != null && !!this.activeFrame) {
-          //console.log("RECIEVE LayerWorker.PBPacket.DataType.DRAW");
           this.activeFrame.draws.push(LayerWorker.DrawBuilder.build(pbuffer.draw));
         }
         break;
@@ -303,11 +302,12 @@ LayerWorker.LayerTreeBuilder = {
 
 LayerWorker.DrawBuilder = {
   build: function CB_build(pdraw) {
+    // For the sake of data persistence, convert typed array to normal array.
+    var mvMatrix = Array.prototype.slice.call(new Float32Array(pdraw.mvMatrix.buffer, pdraw.mvMatrix.offset, 16));
     return {
       offsetX: pdraw.offsetX,
       offsetY: pdraw.offsetY,
-      mvOffset: pdraw.mvMatrix.offset,
-      mvMatrix: pdraw.mvMatrix.buffer,
+      mvMatrix: mvMatrix,
       totalRects: pdraw.totalRects,
       layerRect: pdraw.layerRect,
     };

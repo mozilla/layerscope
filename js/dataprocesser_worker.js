@@ -64,6 +64,12 @@ LayerWorker.PBDataProcesser = {
           this.activeFrame.layerTree =  LayerWorker.LayerTreeBuilder.build(pbuffer.layers);
         }
         break;
+      case LayerWorker.PBPacket.DataType.DRAW:
+      if (pbuffer.draw != null && !!this.activeFrame) {
+          //console.log("RECIEVE LayerWorker.PBPacket.DataType.DRAW");
+          this.activeFrame.draws.push(LayerWorker.DrawBuilder.build(pbuffer.draw));
+        }
+        break;
       default:
         console.assert(false, "Error: Unsupported packet type. Please update this viewer.");
     }
@@ -293,4 +299,17 @@ LayerWorker.LayerTreeBuilder = {
 
     return roots;
   },
+};
+
+LayerWorker.DrawBuilder = {
+  build: function CB_build(pdraw) {
+    return {
+      offsetX: pdraw.offsetX,
+      offsetY: pdraw.offsetY,
+      mvOffset: pdraw.mvMatrix.offset,
+      mvMatrix: pdraw.mvMatrix.buffer,
+      totalRects: pdraw.totalRects,
+      layerRect: pdraw.layerRect,
+    };
+  }
 };

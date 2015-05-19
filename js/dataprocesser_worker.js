@@ -1,3 +1,8 @@
+/* vim:set ts=2 sw=2 sts=2 et: */
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 if (typeof LayerWorker == "undefined" || !LayerWorker) {
   LayerWorker = {};
 }
@@ -16,11 +21,21 @@ LayerWorker.PBPacket = dcodeIO.ProtoBuf
   ;
 
 onmessage = function (event) {
-  LayerWorker.PBDataProcesser.handle(event.data);
+  if (!!event.data.pbuffer) {
+    LayerWorker.PBDataProcesser.handle(event.data.pbuffer);
+  }
+
+  if(!!event.data.command) {
+    LayerWorker.PBDataProcesser[event.data.command]();
+  }
 };
 
 LayerWorker.PBDataProcesser = {
   _activeFrame: null,
+
+  end: function PBP_end() {
+    LayerWorker.TexBuilder.clear();
+  },
 
   handle: function PDP_handle(data) {
     var pbuffer = LayerWorker.PBPacket.decode(data);
@@ -30,7 +45,9 @@ LayerWorker.PBDataProcesser = {
                               high: pbuffer.frame.value.getHighBitsUnsigned()});
         break;
       case LayerWorker.PBPacket.DataType.FRAMEEND:
-        this._processFrame();
+        if (!!this.activeFrame) {
+          this._processFrame();
+        }
         break;
       case LayerWorker.PBPacket.DataType.COLOR:
         if (pbuffer.color != null && !!this.activeFrame) {
@@ -38,13 +55,18 @@ LayerWorker.PBDataProcesser = {
         }
         break;
       case LayerWorker.PBPacket.DataType.TEXTURE:
-        if (pbuffer.texture != null && !!this.activeFrame) {
+        if (pbuffer.texture != null && !!this.activeFrame && !!pbuffer.texture.data) {
           this.activeFrame.textureNodes.push(LayerWorker.TexBuilder.build(pbuffer.texture));
         }
         break;
       case LayerWorker.PBPacket.DataType.LAYERS:
         if (pbuffer.layers != null && !!this.activeFrame) {
           this.activeFrame.layerTree =  LayerWorker.LayerTreeBuilder.build(pbuffer.layers);
+        }
+        break;
+      case LayerWorker.PBPacket.DataType.DRAW:
+      if (pbuffer.draw != null && !!this.activeFrame) {
+          this.activeFrame.draws.push(LayerWorker.DrawBuilder.build(pbuffer.draw));
         }
         break;
       default:
@@ -61,16 +83,18 @@ LayerWorker.PBDataProcesser = {
   },
 
   get activeFrame() {
-    console.assert(!!this._activeFrame);
     return this._activeFrame;
   },
 
   _processFrame: function PDP_processFrame() {
-    console.assert(!!this._activeFrame);
+    // Skip unpaired frame.
+    if (!this._activeFrame) {
+      console.assert(!!this._activeFrame);
+    }
 
     // message
     var message = {frame: this._activeFrame, 
-                   images: LayerWorker.TexBuilder.flush()};
+                   images: LayerWorker.TexBuilder.transferImages()};
     // transferable list
     var transferables = [];
     for (var key in message.images) {
@@ -101,8 +125,15 @@ LayerWorker.ColorBuilder = {
 };
 
 LayerWorker.TexBuilder = {
+  // Hold hash/image map for a single frame session.
   _images: {},
+  // Hold hash for a whole profile session.
   _keys: [],
+
+  clear: function TB_clear() {
+    this._images = {};
+    this._keys = [];
+  },
 
   build: function TB_build(ptexture) {
     var key = this._cache(
@@ -172,7 +203,7 @@ LayerWorker.TexBuilder = {
     return hash;
   },
 
-  flush: function IDP_flush() {
+  transferImages: function IDP_transferImages() {
     var tmp = this._images;
     this._images = {};
 
@@ -267,4 +298,18 @@ LayerWorker.LayerTreeBuilder = {
 
     return roots;
   },
+};
+
+LayerWorker.DrawBuilder = {
+  build: function CB_build(pdraw) {
+    // For the sake of data persistence, convert typed array to normal array.
+    var mvMatrix = Array.prototype.slice.call(new Float32Array(pdraw.mvMatrix.buffer, pdraw.mvMatrix.offset, 16));
+    return {
+      offsetX: pdraw.offsetX,
+      offsetY: pdraw.offsetY,
+      mvMatrix: mvMatrix,
+      totalRects: pdraw.totalRects,
+      layerRect: pdraw.layerRect,
+    };
+  }
 };

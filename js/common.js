@@ -173,10 +173,15 @@ LayerScope.MessageCenter = {
 
   fire: function RMC_fire(msgName, value) {
     if (!(msgName in this._handlers)) {
+      console.log("Fire an unsubscribed message: " + msgName);
       return;
     }
 
     var handlers = this._handlers[msgName];
+    if (0 == handlers.length) {
+      console.log("Fire an message with no listeners: " + msgName);
+      return;
+    }
     for (var i = 0; i < handlers.length; i++) {
       var o = handlers[i];
       o.notify(msgName, value);

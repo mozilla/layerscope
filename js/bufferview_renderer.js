@@ -22,32 +22,33 @@ GLEnumNames[GL_TEXTURE_RECTANGLE] = "TEXTURE_RECTANGLE";
 // 1. mask.
 // 2. color and texture.
 var heatMapVS = "\
-uniform mat4 uMatrixProj;\
-uniform vec4 uLayerRects[4];\
-uniform mat4 uLayerTransform;\
-uniform vec4 uRenderTargetOffset;\
-\
-attribute vec4 aCoord;\
-\
-void main() {\
-  int vertexID = int(aCoord.w);\
-  vec4 layerRect = uLayerRects[vertexID];\
-  vec4 finalPosition = vec4(aCoord.xy * layerRect.zw + layerRect.xy, 0.0, 1.0);\
-  finalPosition = uLayerTransform * finalPosition;\
-  finalPosition.xyz /= finalPosition.w;\
-  finalPosition = finalPosition - uRenderTargetOffset;\
-  finalPosition.xyz *= finalPosition.w;\
-  finalPosition = uMatrixProj * finalPosition;\
-  gl_Position = finalPosition;\
-}\
+  uniform mat4 uMatrixProj;\
+  uniform vec4 uLayerRects[4];\
+  uniform mat4 uLayerTransform;\
+  uniform vec4 uRenderTargetOffset;\
+  \
+  attribute vec4 aCoord;\
+  \
+  void main() {\
+    int vertexID = int(aCoord.w);\
+    vec4 layerRect = uLayerRects[vertexID];\
+    vec4 finalPosition = vec4(aCoord.xy * layerRect.zw + layerRect.xy, 0.0, 1.0);\
+    finalPosition = uLayerTransform * finalPosition;\
+    finalPosition.xyz /= finalPosition.w;\
+    finalPosition = finalPosition - uRenderTargetOffset;\
+    finalPosition.xyz *= finalPosition.w;\
+    finalPosition = uMatrixProj * finalPosition;\
+    gl_Position = finalPosition;\
+  }\
 ";
 
 var heatMapFS = "\
-precision mediump float;\
-\
-void main(void) {\
-  gl_FragColor = vec4(1.0, 1.0, 1.0, 0.2);\
-}";
+  precision mediump float;\
+  \
+  void main(void) {\
+    gl_FragColor = vec4(1.0, 1.0, 1.0, 0.2);\
+  }\
+";
 
 var boundaryVS = "\
   attribute vec3 a_position;\
@@ -67,230 +68,40 @@ var boundaryFS = "\
   }\
 ";
 
-// TBR
-var fragmentShader = "\
-precision mediump float;\
-\
-void main(void) {\
-  gl_FragColor = vec4(1.0, 1.0, 1.0, 0.2);\
-}";
+LayerScope.DrawTesting = false;
+// Dump draw call information into console for debugging.
+LayerScope.DrawLog = false;
 
-var vertextShader = "\
-attribute vec3 aCoord;\
-\
-uniform mat4 uLayerTransform;\
-uniform mat4 uMatrixProj;\
-\
-void main(void) {\
-  gl_Position = uMatrixProj * uLayerTransform * vec4(aCoord, 1.0);\
-}";
-
-LayerScope.ThreeDViewImp = {
-  gl: null,
-  program: null,
-  positionBuffer: null,
-  quadVBO: null,
+LayerScope.ShaderPrograms = {
   layerProgram: null,
-  bonudaryProgram: null,
+  boundaryProgram: null,
 
-  layerSelection: function THD_layerSelection(className) {
-
+  create: function PS_create(gl) {
+    var program = this.layerProgram = this._createProgram(gl, heatMapVS, heatMapFS);
+    program.uMatrixProj = gl.getUniformLocation(program, "uMatrixProj");
+    program.uLayerRects = gl.getUniformLocation(program, "uLayerRects");
+    program.uLayerTransform = gl.getUniformLocation(program, "uLayerTransform");
+    program.uRenderTargetOffset = gl.getUniformLocation(program, "uRenderTargetOffset");
+    program.aCoord = gl.getAttribLocation(program, "aCoord");
+    gl.enableVertexAttribArray(program.aCoord);
+    
+    program = this.boundaryProgram = this._createProgram(gl, boundaryVS, boundaryFS);
+    program.uMatrixProj = gl.getUniformLocation(program, "uMatrixProj"); 
+    program.uMatrixMV = gl.getUniformLocation(program, "uMatrixMV"); 
+    program.uColor = gl.getUniformLocation(program, "u_color"); 
+    program.vb = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, program.vb);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([10, 10, 0, 1000, 1000, 0]), gl.STATIC_DRAW);
+    program.ib = gl.createBuffer();
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, program.ib);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array([0, 1, 2, 3, 0]), gl.STATIC_DRAW);
+    program.position = gl.getAttribLocation(program, "a_position");
+    gl.enableVertexAttribArray(program.position);
   },
 
-  input: function TDV_input(frame) {
-    var gl = this.gl;
-
-    gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
-    // Clear color
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); 
-
-    // Setup project matrix, uMatrixProj.
-    // Gopy the logic from CompositorOGL::PrepareViewport:
-    //   https://dxr.mozilla.org/mozilla-central/source/gfx/layers/opengl/CompositorOGL.cpp
-    // TBD: 
-    //   1. Do we need to evaluate this martix every time? 
-    //   2. Do we need to accumulate CompositorOGL::mRenderOffset?
-    // Need to accumulate render offset.
-    var uMatrixProj = mat4.create();
-    mat4.identity(uMatrixProj);
-    mat4.translate(uMatrixProj, [-1.0, 1.0, 0]);
-    //mat4.scale(uMatrixProj, [2.0 / gl.viewportWidth, 2.0 / gl.viewportHeight, 1.0]);
-    mat4.scale(uMatrixProj, [1.0 / gl.viewportWidth, 1.0 / gl.viewportHeight, 1.0]);
-    mat4.scale(uMatrixProj, [1.0, -1.0, 0]); // flip
-    uMatrixProj[10] = 0.0; // project to (z=0) plane.
-    gl.useProgram(this.layerProgram);
-    gl.uniformMatrix4fv(this.layerProgram.uMatrixProj, false, uMatrixProj);
-    gl.useProgram(this.boundaryProgram);
-    gl.uniformMatrix4fv(this.boundaryProgram.uMatrixProj, false, uMatrixProj);
-
-    if (frame == undefined) {
-      fakeData();
-    };
-
-    console.log("===================== Frame begin ======================");
-    console.log("Totla draws = " + frame.draws.length);
-    // Draw quads.
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
-    for (let draw of frame.draws) {
-      // Matrix4x4.
-      var uLayerTransform = new Float32Array(draw.mvMatrix, draw.mvOffset, 16);
-      /*var uLayerTransform = [
-      1, 0, 0, 0,
-      0, 1, 0, 0,
-      0, 0, 1, 0,
-      0, 0, 0, 1
-      ];*/
-      var uRenderTargetOffset = new Float32Array([draw.offsetX, draw.offsetY, 0.0, 0.0]);
-      // Sender may not always send an array with 16 items.
-      var uLayerRects = new Float32Array(16);
-      draw.layerRect.forEach(function (element, index) {
-        uLayerRects[index * 4] = element.x;
-        uLayerRects[index * 4 + 1] = element.y;
-        uLayerRects[index * 4 + 2] = element.w;
-        uLayerRects[index * 4 + 3] = element.h;
-      });
-      console.assert(draw.totalRects > 0 && draw.totalRects <= 4);
-      this._drawQuad(this.gl, uLayerTransform, uRenderTargetOffset, uLayerRects, draw.totalRects);
-    }
-
-    // Draw boundary of each quad.
-    gl.blendFunc(gl.ONE, gl.ZERO);
-    gl.useProgram(this.boundaryProgram);
-    gl.lineWidth(1.0);
-    for (let draw of frame.draws) {
-      // Matrix4x4.
-      var uLayerTransform = new Float32Array(draw.mvMatrix, draw.mvOffset, 16);
-      /*var uLayerTransform = [
-      1, 0, 0, 0,
-      0, 1, 0, 0,
-      0, 0, 1, 0,
-      0, 0, 0, 1
-      ];*/
-      var uRenderTargetOffset = new Float32Array([draw.offsetX, draw.offsetY, 0.0, 0.0]);
-      // Sender may not always send an array with 16 items.
-      var uLayerRects = new Float32Array(16);
-      draw.layerRect.forEach(function (element, index) {
-        uLayerRects[index * 4] = element.x;
-        uLayerRects[index * 4 + 1] = element.y;
-        uLayerRects[index * 4 + 2] = element.w;
-        uLayerRects[index * 4 + 3] = element.h;
-      });
-
-      this._drawBoundary(this.gl, uLayerTransform, uRenderTargetOffset, uLayerRects);
-    }
-  },
-
-  _drawQuad: function TDV_drawQuad(gl, uMatrixMV, uRenderTargetOffset, uLayerRects, quads) {
-    // Draw heat quad.
-    gl.useProgram(this.layerProgram);
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.quadVBO);
-    gl.vertexAttribPointer(this.layerProgram.aCoord, 4, gl.FLOAT, false, 0, 0);
-
-    gl.uniformMatrix4fv(this.layerProgram.uLayerTransform, false, uMatrixMV);
-    gl.uniform4fv(this.layerProgram.uRenderTargetOffset, uRenderTargetOffset);
-    gl.uniform4fv(this.layerProgram.uLayerRects, uLayerRects);
-
-    gl.drawArrays(gl.TRIANGLES, 0, 6 * quads);
-  },
-
-  _drawBoundary: function TDV_drawBoundary(gl, uMatrixMV, uRenderTargetOffset, uLayerRects) {
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.boundaryProgram.vb)
-    gl.bufferData(gl.ARRAY_BUFFER, 
-      new Float32Array(
-        [uLayerRects[0], uLayerRects[1], 0, 
-         uLayerRects[0]+ uLayerRects[2], uLayerRects[1], 0, 
-         uLayerRects[0]+ uLayerRects[2], uLayerRects[1] + uLayerRects[3], 0,
-         uLayerRects[0], uLayerRects[1] + uLayerRects[3], 0]), 
-      gl.STATIC_DRAW);
-
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.boundaryProgram.ib);
-    gl.vertexAttribPointer(this.boundaryProgram.position, 3, gl.FLOAT, false, 0, 0);
-    gl.enableVertexAttribArray(this.boundaryProgram.position);
-
-    gl.uniformMatrix4fv(this.boundaryProgram.uMatrixMV, false, uMatrixMV);
-    gl.uniform4f(this.boundaryProgram.uColor, 1.0, 0.0, 0.0, 1.0);
-
-    gl.drawElements(gl.LINE_STRIP, 4, gl.UNSIGNED_SHORT, 0);
-    /*console.log("uMatrixMV 1= " + uMatrixMV[0] + "," + uMatrixMV[1] + "," + uMatrixMV[2] + ","+ uMatrixMV[3]+ "," + uMatrixMV[4] + "," + uMatrixMV[5] + "," + uMatrixMV[6] + ","+ uMatrixMV[7] + "," + uMatrixMV[8] + "," + uMatrixMV[9] + "," + uMatrixMV[10] + ","+ uMatrixMV[11]+ "," + uMatrixMV[12] + "," + uMatrixMV[13] + "," + uMatrixMV[14] + ","+ uMatrixMV[15]);
-    console.log("x = " + uLayerRects[0] + ". y = "+ uLayerRects[1] + ". w = " + uLayerRects[2] +". h = " + uLayerRects[3]);*/
-  },
-
-  deactive: function TDV_deactive($panel) {
-    var gl = this.gl;
-
-    $panel.empty();
-
-    if (this.quadVBO) {
-      gl.deleteBuffer(1, this.quadVBO);
-      this.quadVBO = null;
-    }
-  },
-
-  active: function TDV_active($panel) {
-    var $canvas = $("<canvas>")
-    .css('width', '100%')
-    .css('height', '100%')
-      //.attr('width', '200')
-      //.attr('height', '200')
-      .appendTo($panel)
-      ;
-
-    try {
-      function logGLCall(functionName, args) {   
-        //console.log("gl." + functionName + "(" + 
-        //WebGLDebugUtils.glFunctionArgsToString(functionName, args) + ")");   
-      } 
-      var gl = $canvas[0].getContext("experimental-webgl");
-      gl = this.gl = WebGLDebugUtils.makeDebugContext(gl, undefined, logGLCall); 
-
-      $canvas.attr('width', $canvas.width());
-      $canvas.attr('height', $canvas.height());
-      gl.viewportWidth = $canvas.attr('width');
-      gl.viewportHeight = $canvas.attr('height');
-    } catch(e) {
-      alert('WebGL initialization failed...');
-    }
-
-    this._initPrograms(gl);
-
-    gl.clearColor(0.0, 0.0, 0.0, 1.0);
-    // We don't need depth test in layer system.
-    gl.enable(gl.BLEND);
-  },
-
-  _initPrograms: function THD_initPrograms(gl) {
-    var self = this;
-    // 1. The heat map program.
-    this.layerProgram = this._createProgram(gl, heatMapVS, heatMapFS, function (gl, program) {
-      program.uMatrixProj = gl.getUniformLocation(program, "uMatrixProj");
-      program.uLayerRects = gl.getUniformLocation(program, "uLayerRects");
-      program.uLayerTransform = gl.getUniformLocation(program, "uLayerTransform");
-      program.uRenderTargetOffset = gl.getUniformLocation(program, "uRenderTargetOffset");
-      program.aCoord = gl.getAttribLocation(program, "aCoord");
-      gl.enableVertexAttribArray(program.aCoord);
-
-      self._generateQuadVBO();
-    });
-
-    // 2. The boundary porgram.
-    this.boundaryProgram = this._createProgram(gl, boundaryVS, boundaryFS, function (gl, program) {
-      program.uMatrixProj = gl.getUniformLocation(program, "uMatrixProj"); 
-      program.uMatrixMV = gl.getUniformLocation(program, "uMatrixMV"); 
-      program.uColor = gl.getUniformLocation(program, "u_color"); 
-      program.vb = gl.createBuffer();
-      gl.bindBuffer(gl.ARRAY_BUFFER, program.vb);
-      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([10, 10, 0, 1000, 1000, 0]), gl.STATIC_DRAW);
-      program.ib = gl.createBuffer();
-      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, program.ib);
-      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array([0, 1, 2, 3, 0]), gl.STATIC_DRAW);
-      program.position = gl.getAttribLocation(program, "a_position");
-      gl.enableVertexAttribArray(program.position);
-    });
-  },
-
-  _createProgram: function THD_createProgram(gl, vsSource, fsSource, callback) {
-    var vs = this._compileShader(vsSource, gl.VERTEX_SHADER);
-    var fs = this._compileShader(fsSource, gl.FRAGMENT_SHADER);
+  _createProgram: function PS_createProgram(gl, vsSource, fsSource) {
+    var vs = this._compileShader(gl, vsSource, gl.VERTEX_SHADER);
+    var fs = this._compileShader(gl, fsSource, gl.FRAGMENT_SHADER);
     var program = gl.createProgram();
     gl.attachShader(program, vs);
     gl.attachShader(program, fs);
@@ -301,12 +112,10 @@ LayerScope.ThreeDViewImp = {
       alert("Could not initialise shaders");
     }
 
-    callback(gl, program);
     return program;
   },
 
-  _compileShader: function THD_compileShader(code, type) {
-    var gl = this.gl;
+  _compileShader: function PS_compileShader(gl, code, type) {
     var shader = gl.createShader(type);
     gl.shaderSource(shader, code);
     gl.compileShader(shader);
@@ -318,17 +127,25 @@ LayerScope.ThreeDViewImp = {
 
     return shader;
   },
+};
 
-  _generateQuadVBO: function THD_generateQuadVBO() {
-    var gl = this.gl;
+LayerScope.DrawObject = function (uMatrixMV, uRenderTargetOffset, uLayerRects, rects) {
+  this.uMatrixMV = uMatrixMV;
+  this.uRenderTargetOffset = uRenderTargetOffset;
+  this.uLayerRects = uLayerRects;
+  this.rects = rects;
+};
+
+LayerScope.DrawObject.initGL = function (gl) {
+  LayerScope.DrawObject.gl = gl;
     
-    //  Copy the logic from CompositorOGL::Initialize
-    //    https://dxr.mozilla.org/mozilla-central/source/gfx/layers/opengl/CompositorOGL.cpp
-    this.quadVBO = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.quadVBO);
+  //  Copy the logic from CompositorOGL::Initialize
+  //    https://dxr.mozilla.org/mozilla-central/source/gfx/layers/opengl/CompositorOGL.cpp
+  LayerScope.DrawObject.quadVBO = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, this.quadVBO);
 
-    // 4 quads, with the number of the quad (vertexID) encoded in w.
-    var vertices = [
+  // 4 quads, with the number of the quad (vertexID) encoded in w.
+  var vertices = [
     0.0, 0.0, 0.0, 0.0,
     1.0, 0.0, 0.0, 0.0,
     0.0, 1.0, 0.0, 0.0,
@@ -356,10 +173,191 @@ LayerScope.ThreeDViewImp = {
     1.0, 0.0, 0.0, 3.0,
     0.0, 1.0, 0.0, 3.0,
     1.0, 1.0, 0.0, 3.0,
-    ];
+  ];
 
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+}
+
+LayerScope.DrawObject.prototype = {
+  constructor: LayerScope.DrawObject,
+
+  drawLayer: function () {
+    var gl = LayerScope.DrawObject.gl;
+    var program = LayerScope.ShaderPrograms.layerProgram;
+
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+    gl.useProgram(program);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, LayerScope.DrawObject.quadVBO);
+    gl.vertexAttribPointer(program.aCoord, 4, gl.FLOAT, false, 0, 0);
+
+    gl.uniformMatrix4fv(program.uLayerTransform, false, this.uMatrixMV);
+    gl.uniform4fv(program.uRenderTargetOffset, this.uRenderTargetOffset);
+    gl.uniform4fv(program.uLayerRects, this.uLayerRects);
+
+    gl.drawArrays(gl.TRIANGLES, 0, 6 * this.rects);
   },
+
+  drawBoundary: function () {
+    var gl = LayerScope.DrawObject.gl;
+    var program = LayerScope.ShaderPrograms.boundaryProgram
+    ;
+    gl.blendFunc(gl.ONE, gl.ZERO);
+    gl.useProgram(program);
+
+    var uMatrixMV = this.uMatrixMV;
+    var uRenderTargetOffset = this.uRenderTargetOffset;
+    var uLayerRects = this.uLayerRects;
+    var rects = this.rects;
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, program.vb)
+    gl.bufferData(gl.ARRAY_BUFFER, 
+      new Float32Array(
+        [uLayerRects[0], uLayerRects[1], 0, 
+         uLayerRects[0]+ uLayerRects[2], uLayerRects[1], 0, 
+         uLayerRects[0]+ uLayerRects[2], uLayerRects[1] + uLayerRects[3], 0,
+         uLayerRects[0], uLayerRects[1] + uLayerRects[3], 0]), 
+      gl.STATIC_DRAW);
+
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, program.ib);
+    gl.vertexAttribPointer(program.position, 3, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(program.position);
+
+    gl.uniformMatrix4fv(program.uMatrixMV, false, uMatrixMV);
+    gl.uniform4f(program.uColor, 1.0, 0.0, 0.0, 1.0);
+
+    gl.drawElements(gl.LINE_STRIP, 4, gl.UNSIGNED_SHORT, 0);
+
+    this.log();
+  },
+
+  log: function (){
+    if (!LayerScope.DrawLog) 
+      return;
+
+    var uMatrixMV = this.uMatrixMV;
+    console.log("uMatrixMV 1= " + uMatrixMV[0] + "," + uMatrixMV[1] + "," + uMatrixMV[2] + 
+                "," + uMatrixMV[3] + "," + uMatrixMV[4] + "," + uMatrixMV[5] + 
+                "," + uMatrixMV[6] + "," + uMatrixMV[7] + "," + uMatrixMV[8] +
+                "," + uMatrixMV[9] + "," + uMatrixMV[10] + ","+ uMatrixMV[11]+ 
+                "," + uMatrixMV[12] + "," + uMatrixMV[13] + "," + uMatrixMV[14] + 
+                ","+ uMatrixMV[15]);
+
+    var uLayerRects = this.uLayerRects;
+    console.log("x = " + uLayerRects[0] + ". y = "+ uLayerRects[1] + 
+                ". w = " + uLayerRects[2] +". h = " + uLayerRects[3]);
+  }
+};
+
+LayerScope.ThreeDViewImp = {
+  gl: null,
+
+  layerSelection: function THD_layerSelection(className) {
+    // TBD
+    // Splash on the selected layers??
+  },
+
+  input: function TDV_input(frame) {
+    var gl = this.gl;
+    var layerProgram = LayerScope.ShaderPrograms.layerProgram;
+    var boundaryProgram = LayerScope.ShaderPrograms.boundaryProgram;
+
+    gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+    // Clear color
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); 
+
+    // Setup project matrix, uMatrixProj.
+    // Gopy the logic from CompositorOGL::PrepareViewport:
+    //   https://dxr.mozilla.org/mozilla-central/source/gfx/layers/opengl/CompositorOGL.cpp
+    // TBD: 
+    //   1. Do we need to evaluate this martix every time? 
+    //   2. Do we need to accumulate CompositorOGL::mRenderOffset?
+    // Need to accumulate render offset.
+    var uMatrixProj = mat4.create();
+    mat4.identity(uMatrixProj);
+    mat4.translate(uMatrixProj, [-1.0, 1.0, 0]);
+    //mat4.scale(uMatrixProj, [2.0 / gl.viewportWidth, 2.0 / gl.viewportHeight, 1.0]);
+    mat4.scale(uMatrixProj, [1.0 / gl.viewportWidth, 1.0 / gl.viewportHeight, 1.0]);
+    mat4.scale(uMatrixProj, [1.0, -1.0, 0]); // flip
+    uMatrixProj[10] = 0.0; // project to (z=0) plane.
+    gl.useProgram(layerProgram);
+    gl.uniformMatrix4fv(layerProgram.uMatrixProj, false, uMatrixProj);
+    gl.useProgram(boundaryProgram);
+    gl.uniformMatrix4fv(boundaryProgram.uMatrixProj, false, uMatrixProj);
+
+    if (frame == undefined && LayerScope.DrawTesting) {
+      fakeData();
+    };
+
+    // Convert each draw call into a draw obejct.
+    var drawObjects = [];
+    for (let draw of frame.draws) {
+      // Matrix4x4.
+      var uLayerTransform = new Float32Array(draw.mvMatrix);
+      var uRenderTargetOffset = new Float32Array([draw.offsetX, draw.offsetY, 0.0, 0.0]);
+      // Sender may not always send an array with 16 items.
+      var uLayerRects = new Float32Array(16);
+      draw.layerRect.forEach(function (element, index) {
+        uLayerRects[index * 4] = element.x;
+        uLayerRects[index * 4 + 1] = element.y;
+        uLayerRects[index * 4 + 2] = element.w;
+        uLayerRects[index * 4 + 3] = element.h;
+      });
+      console.assert(draw.totalRects > 0 && draw.totalRects <= 4);
+      drawObjects.push(new LayerScope.DrawObject(uLayerTransform, 
+                                                 uRenderTargetOffset, 
+                                                 uLayerRects, 
+                                                 draw.totalRects));
+    }
+
+    // Draw layers first, then overlap boundary upon them.
+    drawObjects.forEach(function (element, index) {
+      element.drawLayer();
+    });
+    drawObjects.forEach(function (element, index) {
+      element.drawBoundary();
+    });
+  },
+
+  deactive: function TDV_deactive($panel) {
+    $panel.empty();
+  },
+
+  active: function TDV_active($panel) {
+    var $canvas = $("<canvas>")
+    .css('width', '100%')
+    .css('height', '100%')
+      //.attr('width', '200')
+      //.attr('height', '200')
+      .appendTo($panel)
+      ;
+
+    try {
+      function logGLCall(functionName, args) {   
+        //console.log("gl." + functionName + "(" + 
+        //WebGLDebugUtils.glFunctionArgsToString(functionName, args) + ")");   
+      } 
+      var gl = $canvas[0].getContext("experimental-webgl");
+      this.gl = gl;
+      //gl = this.gl = WebGLDebugUtils.makeDebugContext(gl, undefined, logGLCall); 
+
+      $canvas.attr('width', $canvas.width());
+      $canvas.attr('height', $canvas.height());
+      gl.viewportWidth = $canvas.attr('width');
+      gl.viewportHeight = $canvas.attr('height');
+    } catch(e) {
+      alert('WebGL initialization failed...');
+    }
+
+    LayerScope.ShaderPrograms.create(gl);
+    LayerScope.DrawObject.initGL(gl);
+
+    gl.clearColor(0.0, 0.0, 0.0, 1.0);
+    // We don't need depth test in layer system.
+    gl.enable(gl.BLEND);
+  },
+
+  // Use for testing only. Remove this fumction later.
   fakeData: function THD_fakeData(frame) {
     frame = {};
     var node1 = {};
@@ -567,8 +565,10 @@ LayerScope.LayerBufferRenderer = {
     LayerScope.MessageCenter.subscribe("buffer.view", this);
 
     // test code.
-    //this.begin();
-    //this.input();
+    if (LayerScope.DrawTesting) {
+      this.begin();
+      this.input();
+    }
   },
 
   notify: function LR_notify(name, value) {

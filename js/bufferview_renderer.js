@@ -25,6 +25,7 @@ var heatMapVS = "\
   uniform mat4 uMatrixProj;\
   uniform vec4 uLayerRects[4];\
   uniform mat4 uLayerTransform;\
+  uniform vec4 u_color;\
   uniform vec4 uRenderTargetOffset;\
   \
   attribute vec4 aCoord;\
@@ -43,10 +44,10 @@ var heatMapVS = "\
 ";
 
 var heatMapFS = "\
-  precision mediump float;\
-  \
+  precision highp float;\
+  uniform vec4 u_color;\
   void main(void) {\
-    gl_FragColor = vec4(1.0, 1.0, 1.0, 0.2);\
+    gl_FragColor = u_color;\
   }\
 ";
 
@@ -82,6 +83,7 @@ LayerScope.ShaderPrograms = {
     program.uLayerRects = gl.getUniformLocation(program, "uLayerRects");
     program.uLayerTransform = gl.getUniformLocation(program, "uLayerTransform");
     program.uRenderTargetOffset = gl.getUniformLocation(program, "uRenderTargetOffset");
+    program.uColor = gl.getUniformLocation(program, "u_color");
     program.aCoord = gl.getAttribLocation(program, "aCoord");
     gl.enableVertexAttribArray(program.aCoord);
     
@@ -129,11 +131,12 @@ LayerScope.ShaderPrograms = {
   },
 };
 
-LayerScope.DrawObject = function (uMatrixMV, uRenderTargetOffset, uLayerRects, rects) {
+LayerScope.DrawObject = function (uMatrixMV, uRenderTargetOffset, uLayerRects, rects, layerRef) {
   this.uMatrixMV = uMatrixMV;
   this.uRenderTargetOffset = uRenderTargetOffset;
   this.uLayerRects = uLayerRects;
   this.rects = rects;
+  this.layerRef = layerRef;
 };
 
 LayerScope.DrawObject.initGL = function (gl) {
@@ -181,7 +184,7 @@ LayerScope.DrawObject.initGL = function (gl) {
 LayerScope.DrawObject.prototype = {
   constructor: LayerScope.DrawObject,
 
-  drawLayer: function () {
+  drawLayer: function DO_drawLayer(selected) {
     var gl = LayerScope.DrawObject.gl;
     var program = LayerScope.ShaderPrograms.layerProgram;
 
@@ -194,11 +197,15 @@ LayerScope.DrawObject.prototype = {
     gl.uniformMatrix4fv(program.uLayerTransform, false, this.uMatrixMV);
     gl.uniform4fv(program.uRenderTargetOffset, this.uRenderTargetOffset);
     gl.uniform4fv(program.uLayerRects, this.uLayerRects);
-
+    if (!!selected && this.layerRef == selected) {
+      gl.uniform4f(program.uColor, 34 / 256, 133 / 256 , 186 / 256, 1.0);
+    } else {
+      gl.uniform4f(program.uColor, 1.0, 1.0, 1.0, 0.2);
+    }
     gl.drawArrays(gl.TRIANGLES, 0, 6 * this.rects);
   },
 
-  drawBoundary: function () {
+  drawLayerBoundary: function DO_drawLayerBoundary() {
     var gl = LayerScope.DrawObject.gl;
     var program = LayerScope.ShaderPrograms.boundaryProgram
     ;
@@ -224,14 +231,14 @@ LayerScope.DrawObject.prototype = {
     gl.enableVertexAttribArray(program.position);
 
     gl.uniformMatrix4fv(program.uMatrixMV, false, uMatrixMV);
-    gl.uniform4f(program.uColor, 1.0, 0.0, 0.0, 1.0);
+    gl.uniform4f(program.uColor, 201/ 256, 117/ 256, 130/ 256, 1.0);
 
     gl.drawElements(gl.LINE_STRIP, 4, gl.UNSIGNED_SHORT, 0);
 
     this.log();
   },
 
-  log: function (){
+  log: function DO_log(){
     if (!LayerScope.DrawLog) 
       return;
 
@@ -251,13 +258,26 @@ LayerScope.DrawObject.prototype = {
 
 LayerScope.ThreeDViewImp = {
   gl: null,
+  drawObjects: [],
 
   layerSelection: function THD_layerSelection(className) {
     // TBD
     // Splash on the selected layers??
+    this._drawScene(className);
+
+    self = this;
+    setTimeout(function () {
+      self._drawScene();
+    }, 1000);
   },
 
   input: function TDV_input(frame) {
+    // Convert each draw call into a draw obejct.
+    this.drawObjects = this._frameToDrawObjects(frame);
+    this._drawScene();
+  },
+
+  _drawScene: function TDV_drawObjects(className) {
     var gl = this.gl;
     var layerProgram = LayerScope.ShaderPrograms.layerProgram;
     var boundaryProgram = LayerScope.ShaderPrograms.boundaryProgram;
@@ -277,7 +297,8 @@ LayerScope.ThreeDViewImp = {
     mat4.identity(uMatrixProj);
     mat4.translate(uMatrixProj, [-1.0, 1.0, 0]);
     //mat4.scale(uMatrixProj, [2.0 / gl.viewportWidth, 2.0 / gl.viewportHeight, 1.0]);
-    mat4.scale(uMatrixProj, [1.0 / gl.viewportWidth, 1.0 / gl.viewportHeight, 1.0]);
+    var ratio = LayerScope.Config.ratio / 100.0;
+    mat4.scale(uMatrixProj, [2.0 * ratio / gl.viewportWidth, 2.0 * ratio / gl.viewportHeight, 1.0]);
     mat4.scale(uMatrixProj, [1.0, -1.0, 0]); // flip
     uMatrixProj[10] = 0.0; // project to (z=0) plane.
     gl.useProgram(layerProgram);
@@ -285,11 +306,22 @@ LayerScope.ThreeDViewImp = {
     gl.useProgram(boundaryProgram);
     gl.uniformMatrix4fv(boundaryProgram.uMatrixProj, false, uMatrixProj);
 
+    // Draw layers first, then overlap boundary upon them.
+    this.drawObjects.forEach(function (element, index) {
+      element.drawLayer(className);
+    });
+    if (LayerScope.Config.drawQuadGrid) {
+      this.drawObjects.forEach(function (element, index) {
+        element.drawLayerBoundary();
+      });
+    }
+  },
+
+  _frameToDrawObjects: function TDV_frameToDrawObjects(frame) {
     if (frame == undefined && LayerScope.DrawTesting) {
       fakeData();
     };
 
-    // Convert each draw call into a draw obejct.
     var drawObjects = [];
     for (let draw of frame.draws) {
       // Matrix4x4.
@@ -307,16 +339,11 @@ LayerScope.ThreeDViewImp = {
       drawObjects.push(new LayerScope.DrawObject(uLayerTransform, 
                                                  uRenderTargetOffset, 
                                                  uLayerRects, 
-                                                 draw.totalRects));
+                                                 draw.totalRects,
+                                                 draw.layerRef.low.toString()));
     }
 
-    // Draw layers first, then overlap boundary upon them.
-    drawObjects.forEach(function (element, index) {
-      element.drawLayer();
-    });
-    drawObjects.forEach(function (element, index) {
-      element.drawBoundary();
-    });
+    return drawObjects;
   },
 
   deactive: function TDV_deactive($panel) {
@@ -325,35 +352,42 @@ LayerScope.ThreeDViewImp = {
 
   active: function TDV_active($panel) {
     var $canvas = $("<canvas>")
-    .css('width', '100%')
-    .css('height', '100%')
-      //.attr('width', '200')
-      //.attr('height', '200')
+      .css('width', '100%')
+      .css('height', '100%')
       .appendTo($panel)
       ;
 
     try {
       function logGLCall(functionName, args) {   
-        //console.log("gl." + functionName + "(" + 
-        //WebGLDebugUtils.glFunctionArgsToString(functionName, args) + ")");   
+        console.log("gl." + functionName + "(" + 
+        WebGLDebugUtils.glFunctionArgsToString(functionName, args) + ")");   
       } 
       var gl = $canvas[0].getContext("experimental-webgl");
       this.gl = gl;
       //gl = this.gl = WebGLDebugUtils.makeDebugContext(gl, undefined, logGLCall); 
+    } catch(e) {
+      alert('WebGL initialization failed...');
+    }
 
+    function canvasResize() {
       $canvas.attr('width', $canvas.width());
       $canvas.attr('height', $canvas.height());
       gl.viewportWidth = $canvas.attr('width');
       gl.viewportHeight = $canvas.attr('height');
-    } catch(e) {
-      alert('WebGL initialization failed...');
     }
+
+    canvasResize();
+
+    var self = this;
+    window.addEventListener("resize", function () {
+      canvasResize();
+      self._drawScene();
+    });
 
     LayerScope.ShaderPrograms.create(gl);
     LayerScope.DrawObject.initGL(gl);
 
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
-    // We don't need depth test in layer system.
     gl.enable(gl.BLEND);
   },
 

@@ -20,7 +20,9 @@ LayerScope.ProtoDataProcesserProxy = {
 
   end: function PDP_end() {
     this._graph = null;
-    this._worker.postMessage({command: 'end'});
+    if (typeof LayerWorker == "undefined") {
+      this._worker.postMessage({command: 'end'});
+    }
   },
 
   receiveMessage: function PDP_receiveMessage(e) {
@@ -35,12 +37,18 @@ LayerScope.ProtoDataProcesserProxy = {
   },
 
   input: function PDP_input(data) {
-    this._worker.postMessage({pbuffer: data}, [data]);
+    if (typeof LayerWorker == "undefined") {
+      this._worker.postMessage({pbuffer: data}, [data]);
+    } else {
+      LayerWorker.OnMessage({ data: { pbuffer: data } });
+    }
   },
 };
 
-LayerScope.ProtoDataProcesserProxy._worker = new Worker('js/dataprocesser_worker.js');
-LayerScope.ProtoDataProcesserProxy._worker.onmessage =
-  LayerScope.ProtoDataProcesserProxy.receiveMessage.bind(LayerScope.ProtoDataProcesserProxy);
+if (typeof LayerWorker == "undefined") {
+  LayerScope.ProtoDataProcesserProxy._worker = new Worker('js/dataprocesser_worker.js');
+  LayerScope.ProtoDataProcesserProxy._worker.onmessage =
+    LayerScope.ProtoDataProcesserProxy.receiveMessage.bind(LayerScope.ProtoDataProcesserProxy);
+}
 
 LayerScope.DataProcesserNode.register(LayerScope.ProtoDataProcesserProxy)

@@ -15,7 +15,8 @@ try {
 
 LayerScope.Config = {
   background: "pattern",
-  ratio: 100
+  ratio: 100,
+  drawQuadGrid: true
 };
 
 LayerScope.Node = function(graph) {
@@ -322,6 +323,10 @@ LayerScope.Session = {
     }
   },
 
+  redraw: function SS_redraw() {
+    this.setCurrentFrame();
+  },
+
   setCurrentFrame: function SS_setCurrentFrame(frameIndex) {
     // Since dataProcess node is much faster then renderer node, we can't
     // render every frame.
@@ -365,16 +370,26 @@ LayerScope.DataProcesserNode = new LayerScope.Node(LayerScope.Session);
 LayerScope.RendererNode = new LayerScope.Node(LayerScope.Session);
 
 $(function() {
+  // Background pattern of 2D buffer view.
   $("#bkgselect").change(function() {
     var val = $(this).val().toLowerCase();
     if (val != LayerScope.Config.background) {
       LayerScope.Config.background = val;
-      LayerScope.Session.setCurrentFrame();
+      LayerScope.Session.redraw();
     }
   });
+  LayerScope.Config.background = $("#bkgselect").val().toLowerCase();
+
+  // Setting: Draw the gid of Quads.
+  $("#checkgrid").change(function() {
+    LayerScope.Config.drawQuadGrid = this.checked;
+    LayerScope.Session.redraw();
+  });
+  LayerScope.Config.drawQuadGrid = $("#checkgrid").attr('checked');
 
   $("#url-address").addClass("ui-corner-all");
 
+  // Setting-buuton + Setting Dialog.
   $("#setting-button")
     .button({
       icons: {primary: null},
@@ -385,11 +400,18 @@ $(function() {
       //$("#setting-options").toggle();
       if ($("#setting-options").css('display') == 'none') {
         $("#setting-options").fadeIn('1000');
+        $("#overlay").css("visibility","visible");
       }
       else {
         $("#setting-options").fadeOut('500');
+        $("#overlay").css("visibility","hidden");
       }
     });
+
+  $("#overlay").on("click", function() {
+    $("#setting-options").fadeOut('500');
+    $("#overlay").css("visibility","hidden");
+  });
 
   $("#connection-btn").button()
     .on("click", function(event) {

@@ -31,7 +31,7 @@ LayerScope.ZoomController = {
           viewStyle = "2D";
         }
 
-        LayerScope.Session.setCurrentFrame();  
+        LayerScope.Session.redraw();  
       });
     //$heatMap.css("background-image", "url(css/zoom-in.png)");
 
@@ -47,7 +47,7 @@ LayerScope.ZoomController = {
 
         LayerScope.ZoomController._ratio++;
         LayerScope.Config.ratio = LayerScope.ZoomController._ratioRange[ratio];
-        LayerScope.Session.setCurrentFrame();
+        LayerScope.Session.redraw();
       });
     $zoomIn.css("background-image", "url(css/zoom-in.png)");
 
@@ -63,7 +63,7 @@ LayerScope.ZoomController = {
 
         LayerScope.ZoomController._ratio = 3;
         LayerScope.Config.ratio = LayerScope.ZoomController._ratioRange[3];
-        LayerScope.Session.setCurrentFrame();
+        LayerScope.Session.redraw();
       });
     $zoomOne.css("background-image", "url(css/zoom-1.png)");
 
@@ -79,7 +79,7 @@ LayerScope.ZoomController = {
 
         LayerScope.ZoomController._ratio--;
         LayerScope.Config.ratio = LayerScope.ZoomController._ratioRange[ratio];
-        LayerScope.Session.setCurrentFrame();
+        LayerScope.Session.redraw();
       });
     $zoomOut.css("background-image", "url(css/zoom-out.png)");
 
@@ -87,6 +87,7 @@ LayerScope.ZoomController = {
     $zoomIn.button("option", "disabled", false);
     $zoomOne.button("option", "disabled", false);
     $zoomOut.button("option", "disabled", false);
+    $heatMap.button("option", "disabled", false);
   }
 };
 

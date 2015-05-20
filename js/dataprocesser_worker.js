@@ -7,28 +7,48 @@ if (typeof LayerWorker == "undefined" || !LayerWorker) {
   LayerWorker = {};
 }
 
-importScripts('../lib/protobuf/Long.js');
-importScripts('../lib/protobuf/ByteBufferAB.js');
-importScripts('../lib/protobuf/ProtoBuf.js');
-importScripts('../lib/lz4-decompress.js');
-importScripts('../lib/sha1.js');
-importScripts('common.js');
-importScripts('frame.js');
-
-LayerWorker.PBPacket = dcodeIO.ProtoBuf
-  .loadProtoFile("./protobuf/LayerScopePacket.proto")
-  .build("mozilla.layers.layerscope.Packet")
-  ;
-
 onmessage = function (event) {
   if (!!event.data.pbuffer) {
     LayerWorker.PBDataProcesser.handle(event.data.pbuffer);
   }
-
   if(!!event.data.command) {
     LayerWorker.PBDataProcesser[event.data.command]();
   }
 };
+
+// Move LayerWorker.PBDataProcesser back to main thread is rather eaiser
+// for debugging.
+// To achieve it, you need to
+// 1. set LayerWorker.MainThread as true.
+// 2. include this js in layerview.html 
+//    <script type="application/javascript;version=1.8" src="js/dataprocesser_worker.js">
+//    </script>
+//    !! Make sure include dataprocesser_worker.js before dataprocesser_proxy.js!!
+// Only do this for debugging, move dataparsing back to main thread will make whole UI
+// sluggish.
+LayerWorker.MainThread = false;
+
+if (LayerWorker.MainThread) {
+  LayerWorker.PBPacket = dcodeIO.ProtoBuf
+    .loadProtoFile("js/protobuf/LayerScopePacket.proto")
+    .build("mozilla.layers.layerscope.Packet")
+    ;
+
+    LayerWorker.OnMessage = onmessage;
+} else {
+  importScripts('../lib/protobuf/Long.js');
+  importScripts('../lib/protobuf/ByteBufferAB.js');
+  importScripts('../lib/protobuf/ProtoBuf.js');
+  importScripts('../lib/lz4-decompress.js');
+  importScripts('../lib/sha1.js');
+  importScripts('common.js');
+  importScripts('frame.js');
+
+  LayerWorker.PBPacket = dcodeIO.ProtoBuf
+    .loadProtoFile("./protobuf/LayerScopePacket.proto")
+    .build("mozilla.layers.layerscope.Packet")
+    ;
+}
 
 LayerWorker.PBDataProcesser = {
   _activeFrame: null,
@@ -102,9 +122,13 @@ LayerWorker.PBDataProcesser = {
         transferables.push(message.images[key].data.buffer);
       }
     }
-
-    // post message and transferable list
-    postMessage(message, transferables);
+    
+    if (LayerWorker.MainThread) {
+      LayerScope.ProtoDataProcesserProxy.receiveMessage({data: message});
+    } else {
+      // post message and transferable list.
+      postMessage(message, transferables);
+    }
 
     // clear active frame.
     this._activeFrame = null;
@@ -305,6 +329,7 @@ LayerWorker.DrawBuilder = {
     // For the sake of data persistence, convert typed array to normal array.
     var mvMatrix = Array.prototype.slice.call(new Float32Array(pdraw.mvMatrix.buffer, pdraw.mvMatrix.offset, 16));
     return {
+      layerRef: pdraw.layerref,
       offsetX: pdraw.offsetX,
       offsetY: pdraw.offsetY,
       mvMatrix: mvMatrix,

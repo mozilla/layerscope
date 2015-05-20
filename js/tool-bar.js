@@ -33,7 +33,7 @@ LayerScope.ZoomController = {
 
         LayerScope.Session.redraw();  
       });
-    //$heatMap.css("background-image", "url(css/zoom-in.png)");
+    $heatMap.css("background-image", "url(css/3d.png)");
 
     // Zoom-in button
     $zoomIn.button()

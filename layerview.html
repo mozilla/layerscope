@@ -125,6 +125,9 @@
         margin: 0px;
         height: calc(100% - 40px);
         top: 38px;
+        border: 1px solid gray;
+        border-right-style: none;
+        border-left-style: none;
       }
 
       #left-data-pane {
@@ -172,13 +175,13 @@
         background-color: white;
         overflow: auto;
         width: calc(100% - 10px);
-        height: calc(50% - 30px);
+        height: calc(50% - 13px);
       }
 
       .dataTables_wrapper {
         margin: 5px;
         width: calc(100% - 10px);
-        height: calc(50% - 5px);
+        height: calc(50%);
       }
 
       .resizable-left {
@@ -195,7 +198,7 @@
         margin: 5px 5px 0px 0px;
         box-sizing: border-box;
         width: calc(100% - 5px);
-        height: 30px;
+        height: 32px;
         padding-left: 5px;
         overflow:none;
       }
@@ -206,13 +209,13 @@
         font-size: 13px;
         position: absolute;
         right: 285px;
-        top:35px;
+        top:14px;
       }
 
       #frame-slider {
         position: absolute;
         right: 15px;
-        top: 37px;
+        top: 16px;
         width: 250px;
         height: 11px;
         background: url(css/slider-bg.png);
@@ -226,7 +229,7 @@
         width: calc(100% - 5px);
         border: 1px solid gray;
         border-top-style: none;
-        height: calc(100% - 60px);
+        height: calc(100% - 40px);
         overflow: auto;
       }
 
@@ -381,7 +384,7 @@
     </div>
     <!-- Tree View -->
     <div id="left-data-pane" class="data-pane ui-widget-content resizable-left">
-      <h3 class="ui-widget-header">Layer Tree</h3>
+      <!--<h3 class="ui-widget-header">Layer Tree</h3>-->
       <div id="tree-pane" class="resizable-top"></div>
       <table id="property-table" class="display" cellspacing="0">
         <thead>
@@ -395,7 +398,7 @@
     </div>
     <!-- Buffer View -->
     <div id="right-data-pane" class="data-pane resizable-right">
-      <h3 class="ui-widget-header">Layer Image</h3>
+      <!--<h3 class="ui-widget-header">Layer Image</h3>-->
       <div id="tool-bar" class="ui-widget-header">
         <div id="zoom-button-set">
           <button id="heat-map"></button>

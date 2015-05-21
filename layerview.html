@@ -22,13 +22,17 @@
     <script src="lib/protobuf/ByteBufferAB.js"></script>
     <script src="lib/protobuf/ProtoBuf.js"></script>
     <script src="lib/jszip.min.js"></script>
+    <script src="lib/glMatrix-0.9.5.min.js"></script>
+    <script src="lib/webgl-debug.js"></script>
 
     <!-- layerview source -->
     <script type="application/javascript;version=1.8" src="js/frame.js"></script>
     <script type="application/javascript;version=1.8" src="js/common.js"></script>
     <script type="application/javascript;version=1.8" src="js/persistence.js"></script>
     <script type="application/javascript;version=1.8" src="js/layerview.js"></script>
-    <script type="application/javascript;version=1.8" src="js/renderers.js"></script>
+    <script type="application/javascript;version=1.8" src="js/bufferview_renderer.js"></script>
+    <script type="application/javascript;version=1.8" src="js/treeview_renderer.js"></script>
+    <!--<script type="application/javascript;version=1.8" src="js/dataprocesser_worker.js"></script>-->
     <script type="application/javascript;version=1.8" src="js/dataprocesser_proxy.js"></script>
     <script type="application/javascript;version=1.8" src="js/tool-bar.js"></script>
 
@@ -121,6 +125,9 @@
         margin: 0px;
         height: calc(100% - 40px);
         top: 38px;
+        border: 1px solid gray;
+        border-right-style: none;
+        border-left-style: none;
       }
 
       #left-data-pane {
@@ -168,13 +175,13 @@
         background-color: white;
         overflow: auto;
         width: calc(100% - 10px);
-        height: calc(50% - 30px);
+        height: calc(50% - 13px);
       }
 
       .dataTables_wrapper {
         margin: 5px;
         width: calc(100% - 10px);
-        height: calc(50% - 5px);
+        height: calc(50%);
       }
 
       .resizable-left {
@@ -191,7 +198,7 @@
         margin: 5px 5px 0px 0px;
         box-sizing: border-box;
         width: calc(100% - 5px);
-        height: 30px;
+        height: 32px;
         padding-left: 5px;
         overflow:none;
       }
@@ -202,13 +209,13 @@
         font-size: 13px;
         position: absolute;
         right: 285px;
-        top:35px;
+        top:14px;
       }
 
       #frame-slider {
         position: absolute;
         right: 15px;
-        top: 37px;
+        top: 16px;
         width: 250px;
         height: 11px;
         background: url(css/slider-bg.png);
@@ -218,11 +225,11 @@
         margin: 0px 5px 5px 0px;
         box-sizing: border-box;
         background: white;
-        position: relative;
+        /*position: relative;*/
         width: calc(100% - 5px);
         border: 1px solid gray;
         border-top-style: none;
-        height: calc(100% - 60px);
+        height: calc(100% - 40px);
         overflow: auto;
       }
 
@@ -239,9 +246,9 @@
         display: none;
         border: 1px solid gray;
         background-color: LightGray;
-        width:200px;
+        width:250px;
         right: 0px;
-        z-index: 1;
+        z-index: 1001;
         padding: 5px;
       }
 
@@ -333,9 +340,20 @@
         border-color: #D43F3A;
         background: #D9534F !important;
       }
+      #overlay {
+        visibility: hidden;
+        position: absolute;
+        left: 0px;
+        top: 0px;
+        width:100%;
+        height:100%;
+        background-color: rgba(0, 0, 0, 0.2);
+        z-index: 1000;
+      }
     </style>
   </head>
   <body>
+    <div id="overlay"></div>
     <!-- Hud -->
     <div id="left-hud-pane">
       <div>
@@ -352,7 +370,8 @@
       </div>
       <div id= "setting-options" align="left">
         <input type="checkbox" id="checktree" checked>Fetch Layer Tree</input><br/>
-        <input type="checkbox" id="checkbuffer" checked>Fetch Layer Buffer</input>
+        <input type="checkbox" id="checkbuffer" checked>Fetch Layer Buffer</input><br/>
+        <input type="checkbox" id="checkgrid" checked>Draw the gid of Quads</input>
         <div>
           Background:&nbsp;
           <select id="bkgselect">
@@ -365,7 +384,7 @@
     </div>
     <!-- Tree View -->
     <div id="left-data-pane" class="data-pane ui-widget-content resizable-left">
-      <h3 class="ui-widget-header">Layer Tree</h3>
+      <!--<h3 class="ui-widget-header">Layer Tree</h3>-->
       <div id="tree-pane" class="resizable-top"></div>
       <table id="property-table" class="display" cellspacing="0">
         <thead>
@@ -379,9 +398,10 @@
     </div>
     <!-- Buffer View -->
     <div id="right-data-pane" class="data-pane resizable-right">
-      <h3 class="ui-widget-header">Layer Image</h3>
+      <!--<h3 class="ui-widget-header">Layer Image</h3>-->
       <div id="tool-bar" class="ui-widget-header">
         <div id="zoom-button-set">
+          <button id="heat-map"></button>
           <button id="zoom-out"></button>
           <button id="zoom-1-1"></button>
           <button id="zoom-in"></button>

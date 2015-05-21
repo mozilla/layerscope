@@ -10,7 +10,7 @@ if (typeof LayerScope == "undefined" || !LayerScope) {
 try {
   LayerScope.PBBuilder = dcodeIO.ProtoBuf.loadProtoFile("js/protobuf/LayerScopePacket.proto");
 } catch (e) {
-  // Test case can not find out this proto file correctly.  
+  // Test case can not find out this proto file correctly.
 }
 
 LayerScope.Config = {

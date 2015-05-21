@@ -86,11 +86,11 @@ LayerScope.ShaderPrograms = {
     program.uColor = gl.getUniformLocation(program, "u_color");
     program.aCoord = gl.getAttribLocation(program, "aCoord");
     gl.enableVertexAttribArray(program.aCoord);
-    
+
     program = this.boundaryProgram = this._createProgram(gl, boundaryVS, boundaryFS);
-    program.uMatrixProj = gl.getUniformLocation(program, "uMatrixProj"); 
-    program.uMatrixMV = gl.getUniformLocation(program, "uMatrixMV"); 
-    program.uColor = gl.getUniformLocation(program, "u_color"); 
+    program.uMatrixProj = gl.getUniformLocation(program, "uMatrixProj");
+    program.uMatrixMV = gl.getUniformLocation(program, "uMatrixMV");
+    program.uColor = gl.getUniformLocation(program, "u_color");
     program.vb = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, program.vb);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([10, 10, 0, 1000, 1000, 0]), gl.STATIC_DRAW);
@@ -125,7 +125,7 @@ LayerScope.ShaderPrograms = {
     if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
       alert(gl.getShaderInfoLog(shader));
       return null;
-    } 
+    }
 
     return shader;
   },
@@ -141,7 +141,7 @@ LayerScope.DrawObject = function (uMatrixMV, uRenderTargetOffset, uLayerRects, r
 
 LayerScope.DrawObject.initGL = function (gl) {
   LayerScope.DrawObject.gl = gl;
-    
+
   //  Copy the logic from CompositorOGL::Initialize
   //    https://dxr.mozilla.org/mozilla-central/source/gfx/layers/opengl/CompositorOGL.cpp
   LayerScope.DrawObject.quadVBO = gl.createBuffer();
@@ -218,12 +218,12 @@ LayerScope.DrawObject.prototype = {
     var rects = this.rects;
 
     gl.bindBuffer(gl.ARRAY_BUFFER, program.vb)
-    gl.bufferData(gl.ARRAY_BUFFER, 
+    gl.bufferData(gl.ARRAY_BUFFER,
       new Float32Array(
-        [uLayerRects[0], uLayerRects[1], 0, 
-         uLayerRects[0]+ uLayerRects[2], uLayerRects[1], 0, 
+        [uLayerRects[0], uLayerRects[1], 0,
+         uLayerRects[0]+ uLayerRects[2], uLayerRects[1], 0,
          uLayerRects[0]+ uLayerRects[2], uLayerRects[1] + uLayerRects[3], 0,
-         uLayerRects[0], uLayerRects[1] + uLayerRects[3], 0]), 
+         uLayerRects[0], uLayerRects[1] + uLayerRects[3], 0]),
       gl.STATIC_DRAW);
 
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, program.ib);
@@ -239,19 +239,19 @@ LayerScope.DrawObject.prototype = {
   },
 
   log: function DO_log(){
-    if (!LayerScope.DrawLog) 
+    if (!LayerScope.DrawLog)
       return;
 
     var uMatrixMV = this.uMatrixMV;
-    console.log("uMatrixMV 1= " + uMatrixMV[0] + "," + uMatrixMV[1] + "," + uMatrixMV[2] + 
-                "," + uMatrixMV[3] + "," + uMatrixMV[4] + "," + uMatrixMV[5] + 
+    console.log("uMatrixMV 1= " + uMatrixMV[0] + "," + uMatrixMV[1] + "," + uMatrixMV[2] +
+                "," + uMatrixMV[3] + "," + uMatrixMV[4] + "," + uMatrixMV[5] +
                 "," + uMatrixMV[6] + "," + uMatrixMV[7] + "," + uMatrixMV[8] +
-                "," + uMatrixMV[9] + "," + uMatrixMV[10] + ","+ uMatrixMV[11]+ 
-                "," + uMatrixMV[12] + "," + uMatrixMV[13] + "," + uMatrixMV[14] + 
+                "," + uMatrixMV[9] + "," + uMatrixMV[10] + ","+ uMatrixMV[11]+
+                "," + uMatrixMV[12] + "," + uMatrixMV[13] + "," + uMatrixMV[14] +
                 ","+ uMatrixMV[15]);
 
     var uLayerRects = this.uLayerRects;
-    console.log("x = " + uLayerRects[0] + ". y = "+ uLayerRects[1] + 
+    console.log("x = " + uLayerRects[0] + ". y = "+ uLayerRects[1] +
                 ". w = " + uLayerRects[2] +". h = " + uLayerRects[3]);
   }
 };
@@ -284,13 +284,13 @@ LayerScope.ThreeDViewImp = {
 
     gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
     // Clear color
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); 
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
     // Setup project matrix, uMatrixProj.
     // Gopy the logic from CompositorOGL::PrepareViewport:
     //   https://dxr.mozilla.org/mozilla-central/source/gfx/layers/opengl/CompositorOGL.cpp
-    // TBD: 
-    //   1. Do we need to evaluate this martix every time? 
+    // TBD:
+    //   1. Do we need to evaluate this martix every time?
     //   2. Do we need to accumulate CompositorOGL::mRenderOffset?
     // Need to accumulate render offset.
     var uMatrixProj = mat4.create();
@@ -336,9 +336,9 @@ LayerScope.ThreeDViewImp = {
         uLayerRects[index * 4 + 3] = element.h;
       });
       console.assert(draw.totalRects > 0 && draw.totalRects <= 4);
-      drawObjects.push(new LayerScope.DrawObject(uLayerTransform, 
-                                                 uRenderTargetOffset, 
-                                                 uLayerRects, 
+      drawObjects.push(new LayerScope.DrawObject(uLayerTransform,
+                                                 uRenderTargetOffset,
+                                                 uLayerRects,
                                                  draw.totalRects,
                                                  draw.layerRef.low.toString()));
     }
@@ -351,6 +351,8 @@ LayerScope.ThreeDViewImp = {
   },
 
   active: function TDV_active($panel) {
+    $('#texture-container').css('overflow', 'hidden');
+
     var $canvas = $("<canvas>")
       .css('width', '100%')
       .css('height', '100%')
@@ -358,13 +360,13 @@ LayerScope.ThreeDViewImp = {
       ;
 
     try {
-      function logGLCall(functionName, args) {   
-        console.log("gl." + functionName + "(" + 
-        WebGLDebugUtils.glFunctionArgsToString(functionName, args) + ")");   
-      } 
+      function logGLCall(functionName, args) {
+        console.log("gl." + functionName + "(" +
+        WebGLDebugUtils.glFunctionArgsToString(functionName, args) + ")");
+      }
       var gl = $canvas[0].getContext("experimental-webgl");
       this.gl = gl;
-      //gl = this.gl = WebGLDebugUtils.makeDebugContext(gl, undefined, logGLCall); 
+      //gl = this.gl = WebGLDebugUtils.makeDebugContext(gl, undefined, logGLCall);
     } catch(e) {
       alert('WebGL initialization failed...');
     }
@@ -436,7 +438,7 @@ LayerScope.ThreeDViewImp = {
     node3.layerRect = [
     // x, y, width, height
     400.0, 120.0, 400.0, 100.0,
-    ];      
+    ];
 
     var node4 = {};
     node4.mvMatrix = [
@@ -451,10 +453,10 @@ LayerScope.ThreeDViewImp = {
     node4.layerRect = [
     // x, y, width, height
     500.0, 130.0, 100.0, 10.0,
-    ]; 
+    ];
 
     //frame.textureNodes = [node1, node2, node3, node4];
-    frame.draws = [node1]; 
+    frame.draws = [node1];
   }
 };
 
@@ -474,6 +476,7 @@ LayerScope.TwoDViewImp = {
   },
 
   active: function TWD_active($panel) {
+    $('#texture-container').css('overflow', 'auto');
     this._$panel = $panel;
   },
 
@@ -591,7 +594,7 @@ LayerScope.LayerBufferRenderer = {
   _graph: null,
 
   init: function TR_init(graph) {
-    this._graph = graph; 
+    this._graph = graph;
 
     this._view = LayerScope.ThreeDViewImp;
 
@@ -610,7 +613,7 @@ LayerScope.LayerBufferRenderer = {
       this._view.layerSelection(value);
     } else if (name == "buffer.view") {
       this._view.deactive($("#texture-container"));
-      this._view =  (this._view == LayerScope.ThreeDViewImp) ? 
+      this._view =  (this._view == LayerScope.ThreeDViewImp) ?
       LayerScope.TwoDViewImp : LayerScope.ThreeDViewImp;
       this._view.active($("#texture-container"));
     }

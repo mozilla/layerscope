@@ -329,7 +329,10 @@ LayerWorker.DrawBuilder = {
     // For the sake of data persistence, convert typed array to normal array.
     var mvMatrix = Array.prototype.slice.call(new Float32Array(pdraw.mvMatrix.buffer, pdraw.mvMatrix.offset, 16));
     return {
-      layerRef: pdraw.layerref,
+      layerRef: {
+        low: pdraw.layerref.getLowBitsUnsigned(),
+        high: pdraw.layerref.getHighBitsUnsigned()
+      },
       offsetX: pdraw.offsetX,
       offsetY: pdraw.offsetY,
       mvMatrix: mvMatrix,

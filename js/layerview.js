@@ -7,12 +7,16 @@
 if (typeof LayerScope == "undefined" || !LayerScope) {
   LayerScope = {};
 }
-
-LayerScope.PBBuilder = dcodeIO.ProtoBuf.loadProtoFile("js/protobuf/LayerScopePacket.proto");
+try {
+  LayerScope.PBBuilder = dcodeIO.ProtoBuf.loadProtoFile("js/protobuf/LayerScopePacket.proto");
+} catch (e) {
+  // Test case can not find out this proto file correctly.
+}
 
 LayerScope.Config = {
   background: "pattern",
-  ratio: 100
+  ratio: 100,
+  drawQuadGrid: true
 };
 
 LayerScope.Node = function(graph) {
@@ -233,7 +237,7 @@ LayerScope.Session = {
 
   init: function SS_init() {
     LayerScope.FrameController.attach($("#frame-slider"), $("#frame-info"));
-    LayerScope.ZoomController.attach($("#zoom-in"), $("#zoom-1-1"), $("#zoom-out"));
+    LayerScope.ZoomController.attach($("#heat-map"),$("#zoom-in"), $("#zoom-1-1"), $("#zoom-out"));
     LayerScope.CommandHandler.attach("LAYERS_TREE", $("#checktree"));
     LayerScope.CommandHandler.attach("LAYERS_BUFFER", $("#checkbuffer"));
 
@@ -268,7 +272,7 @@ LayerScope.Session = {
     if (frames !== undefined) {
       // Offline session.
       this._frames = frames;
-      this.display(0);
+      this.setCurrentFrame(0);
       LayerScope.FrameController.update(0, this._frames.length);
     } else {
       // Online session.
@@ -313,13 +317,17 @@ LayerScope.Session = {
     let advance = !LayerScope.FrameController.userSelected;
 
     if (advance) {
-      this.display(this._frames.length - 1);
+      this.setCurrentFrame(this._frames.length - 1);
     } else {
       LayerScope.FrameController.update(this._currentFrame, this._frames.length);
     }
   },
 
-  display: function SS_display(frameIndex) {
+  redraw: function SS_redraw() {
+    this.setCurrentFrame();
+  },
+
+  setCurrentFrame: function SS_setCurrentFrame(frameIndex) {
     // Since dataProcess node is much faster then renderer node, we can't
     // render every frame.
     if (this._timerID) {
@@ -339,7 +347,7 @@ LayerScope.Session = {
         frameIndex = self._currentFrame;
       } else {
         console.assert(frameIndex < self._frames.length,
-                       "LayerScope.Session.display: Invalid frame index");
+                       "LayerScope.Session.setCurrentFrame: Invalid frame index");
         if (self._currentFrame == frameIndex) {
           return;
         }
@@ -362,16 +370,26 @@ LayerScope.DataProcesserNode = new LayerScope.Node(LayerScope.Session);
 LayerScope.RendererNode = new LayerScope.Node(LayerScope.Session);
 
 $(function() {
+  // Background pattern of 2D buffer view.
   $("#bkgselect").change(function() {
     var val = $(this).val().toLowerCase();
     if (val != LayerScope.Config.background) {
       LayerScope.Config.background = val;
-      LayerScope.Session.display();
+      LayerScope.Session.redraw();
     }
   });
+  LayerScope.Config.background = $("#bkgselect").val().toLowerCase();
+
+  // Setting: Draw the gid of Quads.
+  $("#checkgrid").change(function() {
+    LayerScope.Config.drawQuadGrid = this.checked;
+    LayerScope.Session.redraw();
+  });
+  LayerScope.Config.drawQuadGrid = $("#checkgrid").attr('checked');
 
   $("#url-address").addClass("ui-corner-all");
 
+  // Setting-buuton + Setting Dialog.
   $("#setting-button")
     .button({
       icons: {primary: null},
@@ -382,11 +400,18 @@ $(function() {
       //$("#setting-options").toggle();
       if ($("#setting-options").css('display') == 'none') {
         $("#setting-options").fadeIn('1000');
+        $("#overlay").css("visibility","visible");
       }
       else {
         $("#setting-options").fadeOut('500');
+        $("#overlay").css("visibility","hidden");
       }
     });
+
+  $("#overlay").on("click", function() {
+    $("#setting-options").fadeOut('500');
+    $("#overlay").css("visibility","hidden");
+  });
 
   $("#connection-btn").button()
     .on("click", function(event) {

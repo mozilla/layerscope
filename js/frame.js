@@ -16,6 +16,7 @@ LayerScope.Frame = function (stamp) {
   this.colors = [];
   this.layerTree= [];
   this.textureNodes = [];
+  this.draws = [];
 };
 /*
 LayerScope.Frame.prototype.toJSON = function (name) {

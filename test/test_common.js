@@ -5,29 +5,11 @@
 
 QUnit.test("test_texturepool", function(assert) {
   var pool = new LayerScope.ImageDataPool();
-  var width = 1;
-  var stride = 4;
-  var height = 1;
-  var format = 0;
-  var source = new Uint8Array(stride * height);
-  source[0] = source[1] = source[2] = source[3] = 125;
-
-  // The same content, the same hash key
-  var key1 = pool.createTexture(source, width, height, format, stride);
-  var key2 = pool.createTexture(source, width, height, format, stride);
-  assert.equal(key1, key2, "We expect key1 is equal to key2");
-
-  source[0] = source[1] = source[2] = source[3] = 1;
-  var key3 = pool.createTexture(source, width, height, format, stride);
-  assert.notEqual(key3, key1, "We expect key1 is not equal to key3");
-
-  var image = pool.find(key1);
-  assert.notEqual(image, null, "We expect image is not null");
-  assert.equal(image.width, 1, "We expect image.width is 1");
-  assert.equal(image.height, 1, "We expect image.height is 1");
-
-  var image2 = pool.find(0);
-  assert.equal(image2, null, "We expect image2 is null");
+  pool.add(1, 1);
+  pool.add(2, 2);
+  assert.ok(pool.find(1) === 1);
+  assert.ok(pool.find(2) === 2);
+  assert.ok(pool.find(3) === undefined);
 });
 
 QUnit.test("test_taskchain", function(assert) {

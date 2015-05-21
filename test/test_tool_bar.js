@@ -4,11 +4,12 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 QUnit.test("test_zoom", function(assert) {
+  var $viewChange = $("<button>");
   var $zoomIn = $("<button>");
   var $zoomOut = $("<button>");
   var $zoom1 = $("<button>");
 
-  LayerScope.ZoomController.attach($zoomIn, $zoom1, $zoomOut);
+  LayerScope.ZoomController.attach($viewChange, $zoomIn, $zoom1, $zoomOut);
 
   var ratio = LayerScope.ZoomController.ratio;
   $zoomIn.trigger("click"); // zoom+

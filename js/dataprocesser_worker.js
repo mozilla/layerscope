@@ -326,8 +326,6 @@ LayerWorker.LayerTreeBuilder = {
 
 LayerWorker.DrawBuilder = {
   build: function CB_build(pdraw) {
-    // For the sake of data persistence, convert typed array to normal array.
-    var mvMatrix = Array.prototype.slice.call(new Float32Array(pdraw.mvMatrix.buffer, pdraw.mvMatrix.offset, 16));
     return {
       layerRef: {
         low: pdraw.layerref.getLowBitsUnsigned(),
@@ -335,7 +333,7 @@ LayerWorker.DrawBuilder = {
       },
       offsetX: pdraw.offsetX,
       offsetY: pdraw.offsetY,
-      mvMatrix: mvMatrix,
+      mvMatrix: pdraw.mvMatrix,
       totalRects: pdraw.totalRects,
       layerRect: pdraw.layerRect,
     };

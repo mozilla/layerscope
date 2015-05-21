@@ -127,10 +127,10 @@ message DrawPacket {
 
   required float  offsetX = 1;
   required float  offsetY = 2;
-  required bytes  mvMatrix = 3;
+  repeated float  mvMatrix = 3;
   required uint32 totalRects = 4;
   repeated Rect   layerRect = 5;
-  required uint64 layerref = 6; 
+  required uint64 layerref = 6;
 }
 
 // We only need to use this Packet.

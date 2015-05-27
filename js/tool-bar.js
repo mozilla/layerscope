@@ -26,14 +26,16 @@ LayerScope.ZoomController = {
         if (viewStyle == "2D") {
           LayerScope.MessageCenter.fire("buffer.view", "3D");
           viewStyle = "3D";
+          $(this).css("background-image", "url(css/3DView.png)");
         } else {
           LayerScope.MessageCenter.fire("buffer.view", "2D");
           viewStyle = "2D";
+          $(this).css("background-image", "url(css/2DView.png)");
         }
 
-        LayerScope.Session.redraw();  
+        LayerScope.Session.redraw();
       });
-    $heatMap.css("background-image", "url(css/3d.png)");
+    $heatMap.css("background-image", "url(css/2DView.png)");
 
     // Zoom-in button
     $zoomIn.button()

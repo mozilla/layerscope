@@ -263,6 +263,23 @@ function generateLayerAttributes(data, dataSet) {
     convertor.region(data.region, "Visible");
   }
 
+  // Event Regions
+  if (!!data.hitRegion) {
+    convertor.region(data.hitRegion, "Hit Region");
+  }
+  if (!!data.dispatchRegion) {
+    convertor.region(data.dispatchRegion, "DispatchToContent HitRegion");
+  }
+  if (!!data.noActionRegion) {
+    convertor.region(data.noActionRegion, "No Action Region");
+  }
+  if (!!data.hPanRegion) {
+    convertor.region(data.hPanRegion, "Horizontal Pan Region");
+  }
+  if (!!data.vPanRegion) {
+    convertor.region(data.vPanRegion, "Vertical Pan Region");
+  }
+
   if (!!data.opacity) {
     dataSet.push(["Opacity", data.opacity]);
   }

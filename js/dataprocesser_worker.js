@@ -159,6 +159,7 @@ LayerWorker.TexBuilder = {
   // Hold hash for a whole profile session.
   _keys: [],
 
+
   clear: function TB_clear() {
     this._images = {};
     this._keys = [];
@@ -226,6 +227,13 @@ LayerWorker.TexBuilder = {
         }
       }
     }
+
+    var LOCAL_GL_BGRA = 0x80E1;
+    // BGRA to RGBA
+    if ((format & 0xFFFF) == LOCAL_GL_BGRA) {
+      this._BGRA2RGBA(imageData);
+    }
+
     this._images[hash] = imageData;//{buffer: imageData.data.buffer, width: width, height: height };
     this._keys.push(hash);
 
@@ -237,6 +245,16 @@ LayerWorker.TexBuilder = {
     this._images = {};
 
     return tmp;
+  },
+
+  _BGRA2RGBA: function IDP_BGRA2RGBA(imageData) {
+    var view = new Uint8Array(imageData.data.buffer);
+    for (var pos = 0; pos < view.length; pos += 4) {
+      // Software RB swap.
+      var b = view[pos];
+      view[pos] = view[pos + 2];
+      view[pos + 2] = b;
+    }
   }
 };
 

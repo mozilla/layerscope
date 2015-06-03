@@ -75,7 +75,7 @@ LayerWorker.PBDataProcesser = {
         }
         break;
       case LayerWorker.PBPacket.DataType.TEXTURE:
-        if (pbuffer.texture != null && !!this.activeFrame && !!pbuffer.texture.data) {
+        if (pbuffer.texture != null && !!this.activeFrame) {
           this.activeFrame.textureNodes.push(LayerWorker.TexBuilder.build(pbuffer.texture));
         }
         break;
@@ -158,14 +158,39 @@ LayerWorker.TexBuilder = {
   _images: {},
   // Hold hash for a whole profile session.
   _keys: [],
-
+  _contentMap:[],
 
   clear: function TB_clear() {
     this._images = {};
     this._keys = [];
+    this._contentMap = [];
   },
 
   build: function TB_build(ptexture) {
+    //  Create a texture node
+    var layerRef = {
+      low: ptexture.layerref.getLowBitsUnsigned(),
+      high: ptexture.layerref.getHighBitsUnsigned()
+    };
+    // No image data means the content of this texture is not altered
+    if (!ptexture.data) {
+      for (var i = 0; i < this._contentMap.length; i++) {
+        var element = this._contentMap[i];
+        if (this._contentMap[i].name == ptexture.name) {
+          var node = new LayerScope.TextureNode(ptexture.name,
+                                                ptexture.target,
+                                                this._contentMap[i].key,
+                                                layerRef,
+                                                ptexture.glcontext,
+                                                false);
+          return node;
+        }
+      }
+
+      return null;
+    }
+
+    // New content.
     var key = this._cache(
       new Uint8Array(ptexture.data.buffer).subarray(ptexture.data.offset, ptexture.data.limit),
       ptexture.width,
@@ -173,16 +198,23 @@ LayerWorker.TexBuilder = {
       ptexture.dataformat,
       ptexture.stride);
 
-    //  Create a texture node
-    var layerRef = {
-      low: ptexture.layerref.getLowBitsUnsigned(),
-      high: ptexture.layerref.getHighBitsUnsigned()
-    };
     var node = new LayerScope.TextureNode(ptexture.name,
                                         ptexture.target,
                                         key,
                                         layerRef,
-                                        ptexture.glcontext);
+                                        ptexture.glcontext,
+                                        true);
+
+    // Update content map.
+    for (var i = 0; i < this._contentMap.length; i++) {
+      if (this._contentMap[i].name == ptexture.name) {
+        this._contentMap[i].key = key;
+        break;
+      }
+    }
+    if (i == this._contentMap.length) {
+      this._contentMap.push({name: ptexture.name, key: key});
+    }
 
     return node;
   },

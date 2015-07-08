@@ -487,7 +487,8 @@ LayerScope.TwoDViewImp = {
   },
 
   _createTexSprites: function TWD_createTexSprites(frame, $panel) {
-    for (let texNode of frame.textureNodes) {
+    for (let index = 0; index < frame.textureNodes.length; index++) {
+      let texNode = frame.textureNodes[index];
       if (!texNode)
         continue;
       let imageData = LayerScope.LayerBufferRenderer._graph.findImage(texNode.texID);
@@ -525,6 +526,7 @@ LayerScope.TwoDViewImp = {
 
       // Draw image.
       let $canvas = this._createCanvas(imageData);
+      $canvas.textureIndex = index;
       $sprite.append($canvas);
       this._textures.push($canvas);
 
@@ -552,7 +554,7 @@ LayerScope.TwoDViewImp = {
     // Resize tex sprites.
     for (let i = 0; i < textures.length; i++) {
       let $canvas = textures[i];
-      let tex = this._frame.textureNodes[i];
+      let tex = this._frame.textureNodes[$canvas.textureIndex];
       if (!tex)
         continue;
       let imageData = LayerScope.LayerBufferRenderer._graph.findImage(tex.texID);

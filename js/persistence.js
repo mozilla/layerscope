@@ -54,6 +54,33 @@ LayerScope.Storage = {
     this._$progressbar = this._$dialog = null;
   },
 
+  /*
+   * Solution here is too slow.
+   * https://github.com/douglascrockford/JSON-js/blob/master/cycle.js
+   * Before I find a better library to fix cyclic problem, manually rebuild
+   * displayItem patent-child relation.
+   */
+  _rebuildDisplayList: function S_rebuildDisplayList(frames) {
+    for (let frame of frames) {
+    for (let root of frame.layerTree) {
+      (function iterateLayer(layer) {
+        (function iterateDisplayItem(item) {
+          if (!item) {
+            return;
+          }
+          for (let childItem of item.children) {
+            childItem.parent = item;
+            iterateDisplayItem(childItem);
+          }
+        }(layer.value.displayList));
+        for (let child of layer.children) {
+          iterateLayer(child);
+        }
+      }(root));
+    }
+    }
+  },
+
   save: function S_save(frames, pool) {
     var totalTask = Object.keys(pool._cacheImages).length
                     + 2 /* pacakge layertree and zip generation*/;
@@ -85,7 +112,15 @@ LayerScope.Storage = {
 
     // Zip layer tree.
     LayerScope.TaskChain.addTask(function() {
-      var json = JSON.stringify(frames);
+      var json = JSON.stringify(frames,
+        // Prevent cyclic save.
+        function (key, value) {
+          if (key === "displayItemParent") {
+            return undefined;
+          }
+          return value;
+        });
+
       zip.file("layertree.json", json);
       this._progressAdvance();
     }.bind(this));
@@ -135,6 +170,7 @@ LayerScope.Storage = {
     LayerScope.TaskChain.addTask(function(index) {
       this._progressShow(totalTask, "Loading");
       frames = JSON.parse(layerTree.asText());
+      this._rebuildDisplayList(frames);
       this._progressAdvance();
     }.bind(this), ++taskIndex);
 

@@ -1,7 +1,7 @@
 /* vim:set ts=2 sw=2 sts=2 et: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
- *  * License, v. 2.0. If a copy of the MPL was not distributed with this
- *   * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 // Namespace for LayerScope globals
 if (typeof LayerScope == "undefined" || !LayerScope) {
@@ -249,7 +249,7 @@ LayerScope.DrawObject.prototype = {
       return;
 
     var uMatrixMV = this.uMatrixMV;
-    console.log("uMatrixMV 1= " + uMatrixMV[0] + "," + uMatrixMV[1] + "," + uMatrixMV[2] +
+    LayerScope.utils.log("uMatrixMV 1= " + uMatrixMV[0] + "," + uMatrixMV[1] + "," + uMatrixMV[2] +
                 "," + uMatrixMV[3] + "," + uMatrixMV[4] + "," + uMatrixMV[5] +
                 "," + uMatrixMV[6] + "," + uMatrixMV[7] + "," + uMatrixMV[8] +
                 "," + uMatrixMV[9] + "," + uMatrixMV[10] + ","+ uMatrixMV[11]+
@@ -257,7 +257,7 @@ LayerScope.DrawObject.prototype = {
                 ","+ uMatrixMV[15]);
 
     var uLayerRects = this.uLayerRects;
-    console.log("x = " + uLayerRects[0] + ". y = "+ uLayerRects[1] +
+    LayerScope.utils.log("x = " + uLayerRects[0] + ". y = "+ uLayerRects[1] +
                 ". w = " + uLayerRects[2] +". h = " + uLayerRects[3]);
   }
 };
@@ -354,12 +354,21 @@ LayerScope.ThreeDViewImp = {
         uLayerRects[index * 4 + 3] = element.h;
       });
       console.assert(draw.totalRects > 0 && draw.totalRects <= 4);
+      // With
+      // 1. DrawObject::rects(draw.totlaRects), we know where to draw this tile
+      // in 2D space.
+      // 2. Texutre ID of this sprite(need sent it out from gecko)
+      // We are able to reconstruct layer buffer!!
+      LayerScope.utils.log("x = "+ uLayerRects[0], ", y = " + uLayerRects[1],
+                  ",w = "+ uLayerRects[2], ",h = "+ uLayerRects[3]);
       drawObjects.push(new LayerScope.DrawObject(uLayerTransform,
                                                  uRenderTargetOffset,
                                                  uLayerRects,
                                                  draw.totalRects,
                                                  draw.layerRef.low.toString()));
     }
+    // Splitter
+    LayerScope.utils.log("-----------------------");
 
     return drawObjects;
   },
@@ -381,7 +390,7 @@ LayerScope.ThreeDViewImp = {
 
     try {
       function logGLCall(functionName, args) {
-        console.log("gl." + functionName + "(" +
+        LayerScope.utils.log("gl." + functionName + "(" +
         WebGLDebugUtils.glFunctionArgsToString(functionName, args) + ")");
       }
       var gl = $canvas[0].getContext("experimental-webgl") || $canvas[0].getContext("webgl");
@@ -439,231 +448,3 @@ LayerScope.ThreeDViewImp = {
   }
 };
 
-LayerScope.TwoDViewImp = {
-  _$panel: null,
-  _frame: null,
-  _textures: [],
-  _colors: [],
-
-  layerSelection: function TWD_layerSelection(className) {
-    $(".selected-sprite").removeClass("selected-sprite");
-    var $sprites = $("." + className).addClass("selected-sprite");
-    if ($sprites.length == 0) {
-      return;
-    }
-
-    // Scroll to those sprite.
-    var top = $("#texture-container").scrollTop() + $sprites.position().top;
-    $("#texture-container").animate({scrollTop:top}, '500', 'swing');
-  },
-
-  active: function TWD_active($panel) {
-    this._frame = null;
-    this._textures = [];
-    this._colors = [];
-    $('#texture-container').css('overflow', 'auto');
-    this._$panel = $panel;
-  },
-
-  deactive: function TWD_deactive($panel) {
-    this._frame = null;
-    $panel.empty();
-  },
-
-  input: function TWD_input(frame) {
-    // Regenerate texture and color sprite iff we get a new frame input.
-    if (frame != this._frame) {
-      this._$panel.empty();
-      this._textures = [];
-      this._colors = [];
-
-      this._createTexSprites(frame, this._$panel);
-      this._createColorSprites(frame, this._$panel);
-      this._frame = frame;
-    }
-
-    // Fit texCanvas size according to the current zoom ratio.
-    this._resizeSprites(this._textures, this._colors);
-  },
-
-  _createTexSprites: function TWD_createTexSprites(frame, $panel) {
-    for (let index = 0; index < frame.textureNodes.length; index++) {
-      let texNode = frame.textureNodes[index];
-      if (!texNode)
-        continue;
-      let imageData = LayerScope.LayerBufferRenderer._graph.findImage(texNode.texID);
-
-      if (imageData === undefined) {
-        //TODO
-        //Show link broken image.
-        continue;
-      }
-
-      let $sprite = $("<div>").addClass("buffer-sprite")
-      .addClass(texNode.layerRef.low.toString());
-
-      // name + target + size.
-      let $title = $("<div>").addClass("sprite-title")
-        .appendTo($sprite);
-      $title.append($("<p>" + texNode.name + " &mdash; " +
-        GLEnumNames[texNode.target] + " &mdash; "+ imageData.width +
-        "x" + imageData.height + "</p>"));
-
-      // layer ID.
-      let layerID = null;
-      if (texNode.layerRef) {
-        layerID = texNode.layerRef.low;
-        $sprite.attr("data-layer-id", layerID.toString());
-        $title.append($("<p>Layer " + LayerScope.utils.hex8(layerID) + "</p>"));
-      }
-
-      if (!!layerID){
-        $sprite.on("click", function() {
-          LayerScope.MessageCenter.fire("buffer.select",
-            layerID.toString());
-        });
-      }
-
-      // Draw image.
-      let $canvas = this._createCanvas(imageData);
-      $canvas.textureIndex = index;
-      $sprite.append($canvas);
-      this._textures.push($canvas);
-
-      // Create decorations.
-      // Red rectangle - denote new content
-      if (texNode.newContent) {
-        let $canvas = $("<canvas>")
-          .addClass("decoration-canvas")
-          .attr('width', 20)
-          .attr('height', 20)
-          .appendTo($sprite);
-        let ctx = $canvas[0].getContext("2d");
-        ctx.fillStyle = 'red';
-        ctx.fillRect(0, 0, 10, 20);
-      }
-
-      // Last step, append this new sprite.
-      $panel.append($sprite);
-    }
-  },
-
-  _resizeSprites: function TWD_drawTexSprites(textures, colors) {
-    let ratio = LayerScope.Config.ratio / 100;
-
-    // Resize tex sprites.
-    for (let i = 0; i < textures.length; i++) {
-      let $canvas = textures[i];
-      let tex = this._frame.textureNodes[$canvas.textureIndex];
-      if (!tex)
-        continue;
-      let imageData = LayerScope.LayerBufferRenderer._graph.findImage(tex.texID);
-
-      $canvas
-        .css('width', imageData.width * ratio)
-        .css('height', imageData.height * ratio)
-        ;
-    }
-
-    // Resize color sprites.
-    for (let i = 0; i < colors.length; i++) {
-      let color = this._frame.colors[i];
-
-      colors[i]
-        .width(color.width * ratio)
-        .height(color.height * ratio)
-    }
-  },
-
-  _createCanvas: function TWD_createCanvas(imageData) {
-    let $canvas = $("<canvas>")
-      .addClass("background-" + LayerScope.Config.background)
-      .attr('width', imageData.width)
-      .attr('height', imageData.height)
-      ;
-    let ctx = $canvas[0].getContext("2d");
-
-    ctx.putImageData(imageData, 0, 0);
-
-    return $canvas;
-  },
-
-  _createColorSprites: function TWD_createColorSprites(frame, $panel) {
-    for (let o of frame.colors) {
-      let $sprite = $("<div>").addClass("buffer-sprite")
-      .addClass(o.layerRef.low.toString());
-
-      let $title = $("<div>").addClass("sprite-title");
-      $sprite.append($title);
-      $title.append($("<p>" + o.type + " Layer " +
-       LayerScope.utils.hex8(o.layerRef.low) +
-       " &mdash; " + o.width + "x" + o.height + "</p>"));
-      let layerID = o.layerRef.low;
-      $title.attr("data-layer-id", layerID.toString());
-
-      if (o.type == "Color") {
-        var $bgdiv = $("<div>").addClass("background-" + LayerScope.Config.background);
-        let $cdiv = $("<div>")
-          .width(o.width)
-          .height(o.height)
-          .css("background-color", LayerScope.utils.rgbaToCss(o.color))
-          .appendTo($bgdiv);
-        this._colors.push($cdiv);
-      }
-
-      $sprite.on("click", function() {
-        LayerScope.MessageCenter.fire("buffer.select", layerID.toString());
-      });
-
-      $sprite.append($bgdiv);
-      $panel.append($sprite);
-    }
-  }
-};
-
-LayerScope.LayerBufferRenderer = {
-  _view: null,
-  _graph: null,
-
-  init: function TR_init(graph) {
-    this._graph = graph;
-
-    // Set the default buffer view.
-    this._view = LayerScope.TwoDViewImp;
-
-    LayerScope.MessageCenter.subscribe("layer.select", this);
-    LayerScope.MessageCenter.subscribe("buffer.view", this);
-
-    // test code.
-    if (LayerScope.DrawTesting) {
-      this.begin();
-      this.input();
-    }
-  },
-
-  notify: function LR_notify(name, value) {
-    if (name == "layer.select") {
-      this._view.layerSelection(value);
-    } else if (name == "buffer.view") {
-      this._view.deactive($("#texture-container"));
-      this._view =  (this._view == LayerScope.ThreeDViewImp) ?
-                    LayerScope.TwoDViewImp : LayerScope.ThreeDViewImp;
-      this._view.active($("#texture-container"));
-    }
-  },
-
-  begin: function LR_begin() {
-    $("#texture-container").empty();
-    this._view.active($("#texture-container"));
-  },
-  end: function LR_end() {
-
-  },
-
-  input: function LR_input(frame) {
-    this._view.input(frame);
-  }
-};
-
-// Regist LayerBufferRenderer into RendererNode
-LayerScope.RendererNode.register(LayerScope.LayerBufferRenderer);

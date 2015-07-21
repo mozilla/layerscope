@@ -223,7 +223,6 @@ LayerScope.Session = {
   _imageDataPool: null,
   _currentFrame: -1,
   _connectionManager: null,
-  _pbufbuilder: null, // protocol buffer builder
   _timerID: null,
 
   get connectionManager() {
@@ -237,7 +236,12 @@ LayerScope.Session = {
 
   init: function SS_init() {
     LayerScope.FrameController.attach($("#frame-slider"), $("#frame-info"));
-    LayerScope.ZoomController.attach($("#heat-map"),$("#zoom-in"), $("#zoom-1-1"), $("#zoom-out"));
+    LayerScope.ZoomController.attach($("#texture-view"),
+                                     $("#draw-quad-view"),
+                                     $("#display-list-view"),
+                                     $("#zoom-in"),
+                                     $("#zoom-1-1"),
+                                     $("#zoom-out"));
     LayerScope.CommandHandler.attach("LAYERS_TREE", $("#checktree"));
     LayerScope.CommandHandler.attach("LAYERS_BUFFER", $("#checkbuffer"));
 
@@ -510,6 +514,8 @@ $(function() {
      LayerScope.FrameController.advance(true);
     }
   });
+
+  $(document).tooltip();
 
   $("#zoom-button-set").buttonset();
   LayerScope.Session.init();

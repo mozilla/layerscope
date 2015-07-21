@@ -30,9 +30,14 @@
     <script type="application/javascript;version=1.8" src="js/common.js"></script>
     <script type="application/javascript;version=1.8" src="js/persistence.js"></script>
     <script type="application/javascript;version=1.8" src="js/layerview.js"></script>
-    <script type="application/javascript;version=1.8" src="js/bufferview_renderer.js"></script>
-    <script type="application/javascript;version=1.8" src="js/treeview_renderer.js"></script>
-    <!--<script type="application/javascript;version=1.8" src="js/dataprocesser_worker.js"></script>-->
+    <script type="application/javascript;version=1.8" src="js/renderer/displaylist_renderer.js"></script>
+    <script type="application/javascript;version=1.8" src="js/renderer/texturesprite_renderer.js"></script>
+    <script type="application/javascript;version=1.8" src="js/renderer/drawquad_renderer.js"></script>
+    <script type="application/javascript;version=1.8" src="js/renderer/bufferview_renderer.js"></script>
+    <script type="application/javascript;version=1.8" src="js/renderer/treeview_renderer.js"></script>
+    <script type="application/javascript;version=1.8" src="js/displaylist.js"></script>
+    <!--<script type="application/javascript;version=1.8"
+      src="js/dataprocesser_worker.js"></script>-->
     <script type="application/javascript;version=1.8" src="js/dataprocesser_proxy.js"></script>
     <script type="application/javascript;version=1.8" src="js/tool-bar.js"></script>
 
@@ -168,6 +173,7 @@
       .resizable-top,
       .dataTables_wrapper,
       .resizable-bottom {
+        background-color: LightGray;
         display: block;
         box-sizing: border-box;
         border: 1px solid gray;
@@ -230,6 +236,7 @@
       }
 
       #texture-container {
+        font-size: 10px;
         margin: 0px 5px 5px 0px;
         box-sizing: border-box;
         background: white;
@@ -239,6 +246,42 @@
         border-top-style: none;
         height: calc(100% - 40px);
         overflow: auto;
+        position: relative;
+      }
+
+      #layerview-left-panel {
+        position: absolute;
+        /*display: inline-block;*/
+        /*height: calc(100% - 40px);*/
+        height: 100%;
+        width: 300px;
+      }
+
+      #layerview-display-list {
+        top: 0px;
+        height: 50%;
+        width: 100%;
+        overflow: auto;
+      }
+
+      #display-property-table {
+        height: 50%;
+        width: 100%;
+        overflow: auto;
+      }
+
+      #display-list-container {
+        position: absolute;
+        /*display: inline-block;*/
+        background-color: LightGray;
+        overflow: auto;
+        left: 300px;
+        height: 100%;
+        width: calc(100% - 300px);
+      }
+
+      #display-list-canvas {
+        display: inline-block;
       }
 
       #setting-button {
@@ -409,7 +452,9 @@
       <!--<h3 class="ui-widget-header">Layer Image</h3>-->
       <div id="tool-bar" class="ui-widget-header">
         <div id="zoom-button-set">
-          <button id="heat-map"></button>
+          <button id="texture-view"></button>
+          <button id="draw-quad-view"></button>
+          <button id="display-list-view"></button>
           <button id="zoom-out"></button>
           <button id="zoom-1-1"></button>
           <button id="zoom-in"></button>

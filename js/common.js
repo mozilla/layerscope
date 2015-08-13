@@ -9,6 +9,8 @@ if (typeof LayerScope == "undefined" || !LayerScope) {
 }
 
 LayerScope.utils = {
+  _dumpLog: true,
+
   /**
   * Log function
   * @param {string} s
@@ -57,7 +59,11 @@ LayerScope.utils = {
   * @return {string} String in hex format (16 bits)
   */
   hex16: function u_hex16(vh, vl) {
-    return "0x" + this._pad0(vh.toString(16), 8) + this._pad0(vl.toString(16), 8);
+    if (vh > 0) {
+      return "0x" + vh.toString(16) + this._pad0(vl.toString(16), 8);
+    } else {
+      return "0x" + this._pad0(vl.toString(16), 8);
+    }
   },
 
   /**
@@ -79,6 +85,17 @@ LayerScope.utils = {
     $dialog.dialog({
       title: title,
       modal: true });
+  },
+
+  /**
+   * Wrap console.log, turn on/off all logs at once.
+   */
+  log: function u_log() {
+    if (!this._dumpLog) {
+      return;
+    }
+
+    console.log.apply(console, arguments);
   }
 };
 

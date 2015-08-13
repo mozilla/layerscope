@@ -18,24 +18,32 @@ LayerScope.ZoomController = {
     return this._ratioRange[this._ratio];
   },
 
-  attach: function FC_attach($heatMap, $zoomIn, $zoomOne, $zoomOut) {
-    // Heat-map button
-    let viewStyle = "2D";
-    $heatMap.button()
+  attach: function FC_attach($textureView, $drawView, $displayView,
+                             $zoomIn, $zoomOne, $zoomOut) {
+    // View switch button
+    $textureView.css("background-image", "url(css/2DView.png)");
+    $textureView.attr("title", "Texture View");
+    $textureView.button()
       .on("click", function(event) {
-        if (viewStyle == "2D") {
-          LayerScope.MessageCenter.fire("buffer.view", "3D");
-          viewStyle = "3D";
-          $(this).css("background-image", "url(css/3DView.png)");
-        } else {
-          LayerScope.MessageCenter.fire("buffer.view", "2D");
-          viewStyle = "2D";
-          $(this).css("background-image", "url(css/2DView.png)");
-        }
-
+        LayerScope.MessageCenter.fire("buffer.view", "2D");
         LayerScope.Session.redraw();
       });
-    $heatMap.css("background-image", "url(css/2DView.png)");
+
+    $drawView.css("background-image", "url(css/3DView.png)");
+    $drawView.attr("title", "Draw Quad View");
+    $drawView.button()
+      .on("click", function(event) {
+        LayerScope.MessageCenter.fire("buffer.view", "3D");
+        LayerScope.Session.redraw();
+      });
+
+    $displayView.css("background-image", "url(css/DLView.png)");
+    $displayView.attr("title", "Layer View");
+    $displayView.button()
+      .on("click", function(event) {
+        LayerScope.MessageCenter.fire("buffer.view", "DL");
+        LayerScope.Session.redraw();
+      });
 
     // Zoom-in button
     $zoomIn.button()
@@ -52,6 +60,7 @@ LayerScope.ZoomController = {
         LayerScope.Session.redraw();
       });
     $zoomIn.css("background-image", "url(css/zoom-in.png)");
+    $zoomIn.attr("title", "Zoom in");
 
     // 100% button
     $zoomOne.button()
@@ -68,6 +77,7 @@ LayerScope.ZoomController = {
         LayerScope.Session.redraw();
       });
     $zoomOne.css("background-image", "url(css/zoom-1.png)");
+    $zoomOne.attr("title", "1:1");
 
     // Zoom-out button.
     $zoomOut.button()
@@ -84,12 +94,15 @@ LayerScope.ZoomController = {
         LayerScope.Session.redraw();
       });
     $zoomOut.css("background-image", "url(css/zoom-out.png)");
+    $zoomOut.attr("title", "Zoom out");
 
     // Enable tool buttons by default.
     $zoomIn.button("option", "disabled", false);
     $zoomOne.button("option", "disabled", false);
     $zoomOut.button("option", "disabled", false);
-    $heatMap.button("option", "disabled", false);
+    $textureView.button("option", "disabled", false);
+    $drawView.button("option", "disabled", false);
+    $displayView.button("option", "disabled", false);
   }
 };
 

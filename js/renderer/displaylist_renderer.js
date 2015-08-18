@@ -105,7 +105,7 @@ LayerScope.DisplayListDrawer = {
     // Draw Begin.
     var ratio = LayerScope.Config.ratio / 100;
     this._ctx.save();
-    this._ctx.translate(this._layerOffset.x * ratio, this._layerOffset.y * ratio);
+    //this._ctx.translate(this._layerOffset.x * ratio, this._layerOffset.y * ratio);
     this._ctx.scale(ratio, ratio);
 
     // Draw layer images.
@@ -259,6 +259,7 @@ LayerScope.DisplayListViewImp = {
         LayerScope.utils.log("Draw on layer(" + displayItem.layer + ")");
 
         var region = LayerScope.DisplayItem.getBoundary(displayItem,
+                                                        layer,
                                                         appUnitPerDevUit);
         if (region) {
           LayerScope.utils.log("Display Item Region", region[0], region[1],

@@ -56,29 +56,27 @@ LayerScope.DisplayItem.getHitRegion = function(displayItem) {
   return LayerScope.DisplayItem.ApplyTransform(displayItem, bound);
 }
 
-LayerScope.DisplayItem.getBoundary = function(displayItem, unit) {
-  //var bound = [(i / unit) for i of displayItem.layerBounds];//displayItem.layerBounds.slice();
-  var bound = displayItem.layerBounds.slice();
-  for (var i = 0; i < bound.length; i++) {
-    bound[i] = bound[i] / unit;
-  }
- 
-  return LayerScope.DisplayItem.ApplyTransform(displayItem, bound, unit);
+LayerScope.DisplayItem.getBoundary = function(displayItem, layer, unit) {
+  var region = [ (i / unit) for (i of displayItem.layerBounds)];
+  return LayerScope.DisplayItem.ApplyTransform(displayItem, region, layer, unit);
 }
 
-LayerScope.DisplayItem.ApplyTransform = function(displayItem, region, unit) {
-  // Apply transform.
-  for (var item = displayItem.displayItemParent; item; item = item.displayItemParent) {
+LayerScope.DisplayItem.ApplyTransform = function(displayItem, region, layer, unit) {
+  for (var item = displayItem.displayItemParent;
+       item;
+       item = item.displayItemParent) {
     if (item.name == "nsDisplayTransform") {
 
-      var transform = item.layerBounds;
-      region[0] += transform[0];
-      region[1] += transform[1];
+      var transform = LayerScope.DisplayItem.getMatrix2X3(item);
+      var contentbounds = item.contentbounds ?
+                          item.contentbounds[0] : item.bounds[0];
+      var xoffset = (item.layerBounds[0] - contentbounds) / unit;
+      contentbounds = item.contentbounds ?
+                      item.contentbounds[1] : item.bounds[1];
+      var yoffset = (item.layerBounds[1] - contentbounds) / unit;
 
-      //var matrix = LayerScope.DisplayItem.getMatrix2X3(item);
-      // X is correct, Y shift up
-      //region[0] += (matrix[2][0] * unit);
-      //region[1] += (matrix[2][1] * unit);
+      region[0] += (transform[2][0] + xoffset);
+      region[1] += (transform[2][1] + yoffset);
     }
   }
 
@@ -270,28 +268,7 @@ LayerScope.DisplayListBuilder = {
       //console.log("layerBounds ?", displayItem.layerBounds);
     }
 
-    //this._applyTransform(root);
     return root;
-  },
-
-  /**
-  * Apply transform into each display item.
-  */
-  _applyTransform: function DLB_applyTransform(displayItem) {
-    if (displayItem.name == "nsDisplayTransform") {
-      var transform = displayItem["layerBounds"];
-    }
-
-    for (var child of displayItem.children) {
-      if (!!transform) {
-        var bound = child["layerBounds"];
-        //LayerScope.utils.log("bound = ", bound[0], bound[1]);
-        bound[0] += transform[0];
-        bound[1] += transform[1];
-      }
-
-      this._applyTransform(child);
-    }
   }
 };
 

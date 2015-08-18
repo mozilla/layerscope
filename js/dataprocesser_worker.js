@@ -415,22 +415,14 @@ LayerWorker.LayerTreeBuilder = {
 
             var targetLayer = LayerScope.FrameUtils
                                 .findLayerByContentLayerID(roots, child.layer);
-            // TBD:
-            // Some draw call's target layer is a BasicPaintedLayer, we still
-            // need to find a way to either dump BasicLayerManager or draw
-            // these display items on the finale PaintedLayer.
-            if (!targetLayer) {
-              removeItems.push(child);
-            } else {
+            if (!!targetLayer && targetLayer != layer) {
               // Move this display item to the correct hosted layer.
-              if (targetLayer != layer) {
-                var root = targetLayer.value.displayList ||
-                                (targetLayer.value.displayList =
-                                 new LayerScope.DisplayRoot());
-                root.children.push(child);
-                child.displayItemParent = root;
-                removeItems.push(child)
-              }
+              var root = targetLayer.value.displayList ||
+                              (targetLayer.value.displayList =
+                               new LayerScope.DisplayRoot());
+              root.children.push(child);
+              child.displayItemParent = root;
+              removeItems.push(child)
             }
 
             iterateItem(child);

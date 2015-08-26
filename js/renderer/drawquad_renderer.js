@@ -359,8 +359,11 @@ LayerScope.ThreeDViewImp = {
       // in 2D space.
       // 2. Texutre ID of this sprite(need sent it out from gecko)
       // We are able to reconstruct layer buffer!!
-      LayerScope.utils.log("x = "+ uLayerRects[0], ", y = " + uLayerRects[1],
-                  ",w = "+ uLayerRects[2], ",h = "+ uLayerRects[3]);
+      LayerScope.utils.log("x = "+ uLayerRects[0],
+                           ", y = " + uLayerRects[1],
+                           ", w = "+ uLayerRects[2],
+                           ", h = "+ uLayerRects[3],
+                           ". texID = " + draw.texIDs[0]);
       drawObjects.push(new LayerScope.DrawObject(uLayerTransform,
                                                  uRenderTargetOffset,
                                                  uLayerRects,

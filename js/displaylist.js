@@ -1,7 +1,7 @@
 /* vim:set ts=2 sw=2 sts=2 et: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
- *  * License, v. 2.0. If a copy of the MPL was not distributed with this
- *   * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 // Namespace for LayerScope globals
 if (typeof LayerScope == "undefined" || !LayerScope) {
@@ -30,19 +30,39 @@ LayerScope.DisplayItem.reIndex = function (displayItem) {
   })(displayItem);
 }
 
-LayerScope.DisplayItem.getMatrix2X3 = function(displayItem) {
+LayerScope.DisplayItem.getTransform = function(displayItem) {
+  // Transfrom matrix can be 2D or 3D.
+  // 1. 2D. Matrix
   var matches = displayItem.line.match(".*\\[ (.*?) (.*?); (.*?) (.*?); (.*?) (.*?); \\].*$");
-  if (!matches) {
-    return null;
+  if (matches) {
+    var mat = mat2d.create();
+    mat[0] = parseFloat(matches[1]);
+    mat[1] = parseFloat(matches[2]);
+    mat[2] = parseFloat(matches[3]);
+    mat[3] = parseFloat(matches[4]);
+    mat[4] = parseFloat(matches[5]);
+    mat[5] = parseFloat(matches[6]);
+
+    return mat;
   }
 
-  var matrix = [
-    [parseFloat(matches[1]), parseFloat(matches[2])],
-    [parseFloat(matches[3]), parseFloat(matches[4])],
-    [parseFloat(matches[5]), parseFloat(matches[6])],
-  ];
+  // 2. 3D. Matrix4X4
+  matches = displayItem.line.match(".*\\[ (.*?) (.*?) (.*?); (.*?) (.*?) (.*?); (.*?) (.*?) (.*?); \\].*$");
+  if (matches) {
+    var mat = mat2d.create();
 
-  return matrix;
+    mat[0] = parseFloat(matches[1]);
+    mat[1] = parseFloat(matches[2]);
+    mat[2] = parseFloat(matches[4]);
+    mat[3] = parseFloat(matches[5]);
+    mat[4] = parseFloat(matches[7]);
+    mat[5] = parseFloat(matches[8]);
+
+    return mat;
+  }
+
+  // No transform matrix log or something that we don't understand.
+  return null;
 }
 
 LayerScope.DisplayItem.getHitRegion = function(displayItem) {
@@ -62,23 +82,44 @@ LayerScope.DisplayItem.getBoundary = function(displayItem, layer, unit) {
 }
 
 LayerScope.DisplayItem.ApplyTransform = function(displayItem, region, layer, unit) {
+  // Fetch (left, top) point and (right, bottom) point from region.
+  var pos = vec2.create();
+  pos[0] = region[0];
+  pos[1] = region[1];
+  var pos2 = vec2.create();
+  pos2[0] = region[0] + region[2];
+  pos2[1] = region[1] + region[3];
+
   for (var item = displayItem.displayItemParent;
        item;
        item = item.displayItemParent) {
     if (item.name == "nsDisplayTransform") {
-
-      var transform = LayerScope.DisplayItem.getMatrix2X3(item);
       var contentbounds = item.contentbounds ?
                           item.contentbounds[0] : item.bounds[0];
-      var xoffset = (item.layerBounds[0] - contentbounds) / unit;
+      // offset is a reference-frame-toanimation-root-frame vector..
+      var offset = vec2.create();
+      offset[0] = (item.layerBounds[0] - contentbounds) / unit;
       contentbounds = item.contentbounds ?
                       item.contentbounds[1] : item.bounds[1];
-      var yoffset = (item.layerBounds[1] - contentbounds) / unit;
+      offset[1] = (item.layerBounds[1] - contentbounds) / unit;
 
-      region[0] += (transform[2][0] + xoffset);
-      region[1] += (transform[2][1] + yoffset);
+      // mat is a displayitem-to-reference-frame transfrom.
+      var mat = LayerScope.DisplayItem.getTransform(item);
+
+      // mat2d && mat.
+      if (mat && mat.length == 6) {
+        mat2d.translate(mat, mat, offset);
+        vec2.transformMat2d(pos, pos, mat);
+        vec2.transformMat2d(pos2, pos2, mat);
+      }
     }
   }
+
+  // Convert (left, top) and (right, bttom) back to region.
+  region[0] = pos[0];
+  region[1] = pos[1];
+  region[2] = pos2[0] - pos[0];
+  region[3] = pos2[1] - pos[1];
 
   return region;
 }

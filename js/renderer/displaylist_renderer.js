@@ -32,7 +32,7 @@ LayerScope.DisplayListDrawer = {
     this._layerOffset.y = -layer.value.region[0].y;
 
     // Create canvas container.
-    var $container = $('<div id="display-list-container">');
+    var $container = $('<div id="layerview-left-panel">');
     $container.attr("align", "center");
     $panel.append($container);
 
@@ -224,7 +224,7 @@ LayerScope.DisplayListViewImp = {
 
     // Generate a display list tree div for the seleted layer
     var displayList = layer.value.displayList;
-    let $leftPanel = $('<div id="layerview-left-panel">');
+    let $leftPanel = $('<div id="layerview-right-panel">');
     let $tree = $('<div id="layerview-display-list">');
     let $rootUL = $("<ul>");
 
@@ -238,9 +238,10 @@ LayerScope.DisplayListViewImp = {
     this._$panel.append($leftPanel);
 
     $table.dataTable({
+      "bScrollInfinite": true,
+      "bScrollCollapse": true,
+      "sScrollY": "212px",
       "bSort": false,  // Don't sort it.
-      "scrollY":        "300px",
-      "scrollCollapse": true,
       "paging":         false,
       //"pageLength":     10,
       "columns": [ {"width": "40%"}, {"width": "60%"} ],

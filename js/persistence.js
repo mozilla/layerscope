@@ -69,7 +69,7 @@ LayerScope.Storage = {
             return;
           }
           for (let childItem of item.children) {
-            childItem.parent = item;
+            childItem.displayItemParent = item;
             iterateDisplayItem(childItem);
           }
         }(layer.value.displayList));

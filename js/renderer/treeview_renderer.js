@@ -18,8 +18,10 @@ LayerScope.TreeRenderer = {
   _selectedLayerID: null,
 
   init: function TR_init(graph) {
-    $('#property-table').dataTable({
-      "scrollY":        "300px",
+    $('#layer-property-table').dataTable({
+      "bScrollInfinite": true,
+      "bScrollCollapse": true,
+      "sScrollY": "210px",
       "scrollCollapse": true,
       "paging":         false,
       //"pageLength":     10,
@@ -44,14 +46,14 @@ LayerScope.TreeRenderer = {
     $("#tree-pane").empty();
 
     // Clear is not enough, we need to force draw here.
-    $("#property-table").DataTable().clear();
-    $("#property-table").DataTable().draw();
+    $("#layer-property-table").DataTable().clear();
+    $("#layer-property-table").DataTable().draw();
   },
 
   input: function TR_input(frame) {
     if (frame.layerTree.length == 0) {
       $("#tree-pane").empty();
-      $("#property-table").DataTable().clear();
+      $("#layer-property-table").DataTable().clear();
 
       return;
     }
@@ -97,7 +99,7 @@ LayerScope.TreeRenderer = {
 
   _drawProperty: function RT_drawProperty(id) {
     // Clear Layer property table.
-    var $table = $("#property-table").DataTable()
+    var $table = $("#layer-property-table").DataTable()
     $table.clear();
 
     var layer = LayerScope.FrameUtils.findLayerByID(this._graph.frame, id);

@@ -11,7 +11,7 @@ if (typeof LayerScope == "undefined" || !LayerScope) {
 LayerScope.NO_FRAMES = "No frames"
 
 LayerScope.ZoomController = {
-  _ratioRange: [30, 50, 80, 100, 150, 200, 300],
+  _ratioRange: [12.5, 25, 50, 100, 150, 200, 300],
   _ratio: 3,
 
   get ratio() {

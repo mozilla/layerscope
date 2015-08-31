@@ -145,25 +145,43 @@ LayerScope.DisplayListDrawer = {
         var drawInfo= {
           id: texNode.name,
           image: LayerScope.LayerBufferRenderer._graph.findImage(texNode.texID),
-          position: []};
+          position: [],
+          layerRects: [],
+          textureRects: []};
         drawInfos.push(drawInfo);
       }
     }
 
     // Identify the position of each texture node
     drawInfos.forEach(function (drawInfo) {
+      let found = false;
       for (let draw of frame.draws) {
+        // A draw object without texIDs means it uses the same texture with
+        // previous draw object.
+        if (found) {
+          if (!!draw.texIDs[0]) {
+            break;
+          }
+
+          drawInfo.layerRects.push(draw.layerRect[0]);
+          drawInfo.textureRects.push(draw.textureRect[0]);
+        }
+
         if (draw.texIDs[0] == drawInfo.id) {
-          drawInfo.layerRect = draw.layerRect[0];
-          drawInfo.textureRect = draw.textureRect[0];
-          break;
+          drawInfo.layerRects.push(draw.layerRect[0]);
+          drawInfo.textureRects.push(draw.textureRect[0]);
+          found = true;
         }
       }
     });
 
     // Add texture and draw position into Drawer.
-    for (var info of drawInfos) {
-      this._createSprite(info.image, info.layerRect, info.textureRect);
+    for (let info of drawInfos) {
+      for (let i = 0; i < info.layerRects.length; i++) {
+        this._createSprite(info.image,
+                           info.layerRects[i],
+                           info.textureRects[i]);
+      }
     }
   },
 

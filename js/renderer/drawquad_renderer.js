@@ -322,12 +322,17 @@ LayerScope.ThreeDViewImp = {
     // Need to accumulate render offset.
     var uMatrixProj = mat4.create();
     mat4.identity(uMatrixProj);
-    mat4.translate(uMatrixProj, [-1.0, 1.0, 0]);
+    mat4.translate(uMatrixProj, uMatrixProj, [-1.0, 1.0, 0]);
     //mat4.scale(uMatrixProj, [2.0 / gl.viewportWidth, 2.0 / gl.viewportHeight, 1.0]);
     var ratio = LayerScope.Config.ratio / 100.0;
-    mat4.scale(uMatrixProj, [2.0 * ratio / gl.viewportWidth, 2.0 * ratio / gl.viewportHeight, 1.0]);
-    mat4.scale(uMatrixProj, [1.0, -1.0, 0]); // flip
-    mat4.translate(uMatrixProj, [this.cameraOffset[0] / ratio, this.cameraOffset[1] / ratio, 0, 0]);
+    mat4.scale(uMatrixProj, uMatrixProj,
+               [2.0 * ratio / gl.viewportWidth,
+                2.0 * ratio / gl.viewportHeight,
+                1.0]);
+    mat4.scale(uMatrixProj, uMatrixProj, [1.0, -1.0, 0]); // flip
+    mat4.translate(uMatrixProj, uMatrixProj,
+                   [this.cameraOffset[0] / ratio,
+                    this.cameraOffset[1] / ratio, 0, 0]);
     uMatrixProj[10] = 0.0; // project to (z=0) plane.
     programs.forEach(function(program) {
       gl.useProgram(program);

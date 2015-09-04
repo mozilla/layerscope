@@ -13,12 +13,6 @@ try {
   // Test case can not find out this proto file correctly.
 }
 
-LayerScope.Config = {
-  background: "pattern",
-  ratio: 100,
-  drawQuadGrid: true
-};
-
 LayerScope.Node = function(graph) {
   this._registedObjs = [];
   this._graph = graph;
@@ -45,6 +39,7 @@ LayerScope.Node.prototype = {
           element.init(this._graph);
       }.bind(this))
   },
+
   begin: function N_begin() {
     this._registedObjs.forEach(
       function (element, index, array) {
@@ -235,13 +230,15 @@ LayerScope.Session = {
   },
 
   init: function SS_init() {
+    $("#view-button-set").buttonset();
+    $("#zoom-button-set").buttonset();
     LayerScope.FrameController.attach($("#frame-slider"), $("#frame-info"));
-    LayerScope.ZoomController.attach($("#texture-view"),
+    LayerScope.ViewerControls.attach($("#texture-view"),
                                      $("#draw-quad-view"),
-                                     $("#display-list-view"),
-                                     $("#zoom-in"),
-                                     $("#zoom-1-1"),
-                                     $("#zoom-out"));
+                                     $("#display-list-view"));
+    LayerScope.ZoomControls.attach($("#zoom-in"),
+                                   $("#zoom-1-1"),
+                                   $("#zoom-out"));
     LayerScope.CommandHandler.attach("LAYERS_TREE", $("#checktree"));
     LayerScope.CommandHandler.attach("LAYERS_BUFFER", $("#checkbuffer"));
 
@@ -464,8 +461,8 @@ $(function() {
   });
 
   $(".resizable-left").resizable({
-  //  autoHide: true,
-  //  handles: 'e',
+    //autoHide: true,
+    handles: 'e',
     resize: function(e, ui) {
       var parent = ui.element.parent();
       var remainingSpace = parent.width() - ui.element.outerWidth(),
@@ -486,27 +483,16 @@ $(function() {
     }
   });
 
-  $("#tree-pane").resizable({
-    autoHide: true,
-    handles: 's',
-    resize: function(e, ui) {
-      var parent = ui.element.parent();
-      var remainingSpace = parent.height() - ui.element.outerHeight(),
-          divTwo = ui.element.next(),
-          divTwoHeight = (remainingSpace - (divTwo.outerHeight() - divTwo.height()))
-                        / parent.height() * 100 - 2 + "%";
-          divTwo.height(divTwoHeight);
-    },
-    stop: function(e, ui) {
-      var parent = ui.element.parent();
-      ui.element.css({
-        height: ui.element.height()/parent.height()*100+"%",
-      });
-    }
-  });
-
   // Hook left and right key to slide selected frame.
   $("body").keydown(function(e) {
+    // We don't need to pass key events to frame cotroler if it already
+    // get focus. In that case, frame controller will handle key evnet
+    // by itself.
+    var sliderHasFocus = $(".ui-slider-handle").is(":active");
+    if (sliderHasFocus) {
+      return;
+    }
+
     if(e.keyCode == 37) { // left
      LayerScope.FrameController.advance(false);
     }
@@ -517,6 +503,5 @@ $(function() {
 
   $(document).tooltip();
 
-  $("#zoom-button-set").buttonset();
   LayerScope.Session.init();
 });

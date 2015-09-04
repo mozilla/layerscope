@@ -57,6 +57,7 @@
         height: 20px;
         margin: 5px 0px;
         width: 25%;
+        padding-left: 5px;
       }
 
       .buffer-sprite {
@@ -71,6 +72,7 @@
         vertical-align: top;
         font-weight: bold;
       }
+
       .decoration-canvas {
         position: absolute;
         right: 0px;
@@ -131,7 +133,6 @@
 
       .data-pane {
         position: absolute;
-        box-sizing: border-box;
         border:none;
         display: inline-block;
         background: lightgray;
@@ -146,6 +147,7 @@
       #left-data-pane {
         left:0%;
         width: 300px;
+        font-size: 10px;
       }
 
       #right-data-pane {
@@ -170,33 +172,23 @@
         height: 20px;
       }
 
-      .resizable-top,
-      .dataTables_wrapper,
-      .resizable-bottom {
-        background-color: LightGray;
-        display: block;
+      .dataTables_wrapper {
+        margin: 5px 5px 0px 5px;
+        width: calc(100% - 10px);
+        height: 300px;
         box-sizing: border-box;
-        border: 1px solid gray;
-        font-size: 11px;
-        position: relative;
-        padding: 5px;
-        width: 100%;
-        height: 50%;
-        border-style: hidden;
+        padding: 0px;
       }
 
-      #tree-pane {
-        margin-top: 5px;
+      #layer-tree-holder {
+        margin: 0px;
+        border-width: 0px 0px 1px 0px;
+        border-color: gray;
+        border-style: solid;
         background-color: white;
         overflow: auto;
         width: 100%;
         height: calc(100% - 303px);
-      }
-
-      #left-data-pane .dataTables_wrapper {
-        margin: 5px;
-        width: calc(100% - 10px);
-        height: 300px;
       }
 
       .resizable-left {
@@ -210,42 +202,41 @@
       }
 
       #tool-bar {
-        margin: 5px 5px 0px 0px;
+        margin: 0px;
         box-sizing: border-box;
-        width: calc(100% - 5px);
-        height: 32px;
+        width: 100%;
+        height: 33px;
         padding-left: 5px;
         overflow:none;
+        border-width: 0px 0px 1px 1px;
+        border-color: gray;
       }
 
       #frame-info {
-        /*text-align: right;
-        margin-bottom: 10px;*/
         font-size: 13px;
         position: absolute;
         right: 285px;
-        top:14px;
+        top:9px;
       }
 
       #frame-slider {
         position: absolute;
         right: 15px;
-        top: 16px;
+        top: 11px;
         width: 250px;
         height: 11px;
         background: url(css/slider-bg.png);
       }
 
-      #texture-container {
+      #renderer-holder {
         font-size: 10px;
-        margin: 0px 5px 5px 0px;
+        margin: 0px;
         box-sizing: border-box;
         background: white;
-        /*position: relative;*/
-        width: calc(100% - 5px);
+        width: 100%;
         border: 1px solid gray;
         border-top-style: none;
-        height: calc(100% - 40px);
+        height: calc(100% - 32px);
         overflow: auto;
         position: relative;
       }
@@ -260,16 +251,13 @@
 
       #layerview-display-list {
         top: 0px;
-        height: calc(100% - 300px);
+        height: calc(100% - 306px);
         width: 100%;
         overflow: auto;
         background-color:White;
-      }
-
-      #layerview-right-panel  .dataTables_wrapper {
-        margin: 5px;
-        width: calc(100% - 10px);
-        height: 290px;
+        border-width: 0px 0px 1px 0px;
+        border-color: gray;
+        border-style: solid;
       }
 
       #layerview-left-panel {
@@ -319,23 +307,21 @@
       #left-hud-pane .ui-button {
         cursor: pointer;
         text-align: center;
-        height: 25px;
+        height: 24px;
         width: 100px;
         color: #FFF;
         border-radius: 4px;
         border-color: #2E6DA4;
         background: #337AB7 !important;
+        position: relative;
+        top: 1px;
       }
 
       #right-data-pane .ui-button {
-        display: inline-block;
-        vertical-align: top;
-        top: 1px;
         cursor: pointer;
         height: 28px;
         width: 28px;
-        border-radius: 5px;
-        border-color: Gray;
+        border-color: rgb(180,180,180);
         background-repeat: no-repeat;
       }
 
@@ -394,6 +380,7 @@
         border-color: #D43F3A;
         background: #D9534F !important;
       }
+
       #overlay {
         visibility: hidden;
         position: absolute;
@@ -404,6 +391,16 @@
         background-color: rgba(0, 0, 0, 0.2);
         z-index: 1000;
       }
+
+      .ui-buttonset {
+        display: inline-block;
+      }
+
+      #zoom-button-set {
+        position: relative;
+        left: 10px;
+      }
+
     </style>
   </head>
   <body>
@@ -439,7 +436,7 @@
     <!-- Tree View -->
     <div id="left-data-pane" class="data-pane ui-widget-content resizable-left">
       <!--<h3 class="ui-widget-header">Layer Tree</h3>-->
-      <div id="tree-pane" class="resizable-top"></div>
+      <div id="layer-tree-holder" class="resizable-top"></div>
       <table id="layer-property-table" class="display" cellspacing="0">
         <thead>
           <tbody></tbody>
@@ -450,10 +447,12 @@
     <div id="right-data-pane" class="data-pane resizable-right">
       <!--<h3 class="ui-widget-header">Layer Image</h3>-->
       <div id="tool-bar" class="ui-widget-header">
-        <div id="zoom-button-set">
+        <div id="view-button-set">
           <button id="texture-view"></button>
           <button id="draw-quad-view"></button>
           <button id="display-list-view"></button>
+        </div>
+        <div id="zoom-button-set">
           <button id="zoom-out"></button>
           <button id="zoom-1-1"></button>
           <button id="zoom-in"></button>
@@ -461,7 +460,7 @@
         <div id="frame-info"></div>
         <div id="frame-slider"></div>
       </div>
-      <div id="texture-container"></div>
+      <div id="renderer-holder"></div>
     </div>
   </body>
 </html>

@@ -262,16 +262,16 @@ LayerScope.DrawObject.prototype = {
   }
 };
 
-LayerScope.ThreeDViewImp = {
+LayerScope.DrawQuadView = {
   gl: null,
   drawObjects: [],
   cameraOffset: [0, 0],
   _frame: null,
 
-  layerSelection: function THD_layerSelection(className) {
+  layerSelection: function DQV_layerSelection(layerID) {
     // TBD
     // Splash on the selected layers??
-    this._drawScene(className);
+    this._drawScene(layerID);
 
     self = this;
     setTimeout(function () {
@@ -279,7 +279,7 @@ LayerScope.ThreeDViewImp = {
     }, 1000);
   },
 
-  input: function THD_input(frame) {
+  input: function DQV_input(frame) {
     // Convert each draw call into a draw obejct.
     if (frame != this._frame) {
         this.drawObjects = this._frameToDrawObjects(frame);
@@ -289,7 +289,7 @@ LayerScope.ThreeDViewImp = {
       this._drawScene();
   },
 
-  _drawScene: function THD_drawObjects(className) {
+  _drawScene: function DQV_drawObjects(layerID) {
     var gl = this.gl;
 
     // Set up
@@ -302,7 +302,7 @@ LayerScope.ThreeDViewImp = {
 
     // Draw layers first, then overlap boundary upon them.
     this.drawObjects.forEach(function (element, index) {
-      element.drawLayer(className);
+      element.drawLayer(layerID);
     });
 
     if (LayerScope.Config.drawQuadGrid) {
@@ -312,7 +312,7 @@ LayerScope.ThreeDViewImp = {
     }
   },
 
-  _setProjectionMatrix: function THD_setProjectMatrix(gl, programs) {
+  _setProjectionMatrix: function DQV_setProjectMatrix(gl, programs) {
     // Setup project matrix, uMatrixProj.
     // Gopy the logic from CompositorOGL::PrepareViewport:
     //   https://dxr.mozilla.org/mozilla-central/source/gfx/layers/opengl/CompositorOGL.cpp
@@ -324,7 +324,7 @@ LayerScope.ThreeDViewImp = {
     mat4.identity(uMatrixProj);
     mat4.translate(uMatrixProj, uMatrixProj, [-1.0, 1.0, 0]);
     //mat4.scale(uMatrixProj, [2.0 / gl.viewportWidth, 2.0 / gl.viewportHeight, 1.0]);
-    var ratio = LayerScope.Config.ratio / 100.0;
+    var ratio = LayerScope.Config.zoomRatio;
     mat4.scale(uMatrixProj, uMatrixProj,
                [2.0 * ratio / gl.viewportWidth,
                 2.0 * ratio / gl.viewportHeight,
@@ -340,7 +340,7 @@ LayerScope.ThreeDViewImp = {
     });
   },
 
-  _frameToDrawObjects: function THD_frameToDrawObjects(frame) {
+  _frameToDrawObjects: function DQV_frameToDrawObjects(frame) {
     if (frame == undefined && LayerScope.DrawTesting) {
       fakeData();
     };
@@ -381,12 +381,16 @@ LayerScope.ThreeDViewImp = {
     return drawObjects;
   },
 
-  deactive: function THD_deactive($panel) {
+  zoom: function DQV_zoom(value) {
+    this.input(this._frame);
+  },
+
+  deactive: function DQV_deactive($panel) {
     this._frame = null;
     $panel.empty();
   },
 
-  active: function THD_active($panel) {
+  active: function DQV_active($panel) {
     this._frame = null;
     $('#texture-container').css('overflow', 'hidden');
 
@@ -432,7 +436,7 @@ LayerScope.ThreeDViewImp = {
     this._cameraMoveHanler($canvas);
   },
 
-  _cameraMoveHanler: function THD_cameraMoveHanler($canvas) {
+  _cameraMoveHanler: function DQV_cameraMoveHanler($canvas) {
     this.cameraOffset = [0, 0,];
 
     var self = this;

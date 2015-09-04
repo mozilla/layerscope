@@ -18,6 +18,7 @@ LayerScope.DisplayListDrawer = {
   _ctx: null,
   _sprites: [],                // Hold layer's image buffers.
   _layerOffset: { x: 0, y:0 }, // Layer's transition.
+  _layerSize: [0, 0],
 
   /**
    * Create and initiate a canvas according to the content of a layer.
@@ -37,7 +38,6 @@ LayerScope.DisplayListDrawer = {
     $panel.append($container);
 
     // Create canvas.
-    var ratio = LayerScope.Config.ratio / 100;
     // TBD:
     // Rect union function need.
     var width = 0, height = 0;
@@ -49,14 +49,14 @@ LayerScope.DisplayListDrawer = {
         height = (region.h + region.y);
       }
     }
-
-    width *= ratio;
-    height *= ratio;
+    var ratio = LayerScope.Config.zoomRatio;
+    this._layerSize[0] = width;
+    this._layerSize[1] = height;
 
     this._$canvas = $('<canvas id="display-list-canvas">')
       .attr("class", "background-" + LayerScope.Config.background)
-      .attr('width', width + 'px')
-      .attr('height', height + 'px')
+      .attr('width', (this._layerSize[0] * ratio) + 'px')
+      .attr('height', (this._layerSize[1] * ratio) + 'px')
       ;
 
     $container.append(this._$canvas);
@@ -81,29 +81,43 @@ LayerScope.DisplayListDrawer = {
     this._drawRects = [];
   },
 
-  addRect: function DLD_addRect(rect) {
+  addRect: function DLD_addRect(rect, fillRect) {
     console.assert(rect.length == 4);
-    this._drawRects.push(rect);
+    this._drawRects.push({rect: rect, fillRect: fillRect});
   },
 
   drawRect: function DLD_drawRect(rect) {
     this.clearRect();
-    this.addRect(rect);
-    this.draw(false);
+    this.addRect(rect, false);
+    this.draw();
   },
 
   fillRect: function DLD_drawRect(rect) {
     this.clearRect();
-    this.addRect(rect);
-    this.draw(true);
+    this.addRect(rect, true);
+    this.draw();
   },
 
-  draw: function DLD_draw(fillRect) {
+  ratio: function DLD_ratio(value) {
+    var ratio = LayerScope.Config.zoomRatio;
+    if (!!this._$canvas) {
+      this._$canvas
+        .attr('width', (this._layerSize[0] * ratio) + 'px')
+        .attr('height', (this._layerSize[1] * ratio) + 'px')
+        ;
+    }
+  },
+
+  draw: function DLD_draw() {
+    if (!this._ctx) {
+      return;
+    }
+
     // Clear color.
     this._ctx.clearRect(0, 0, this._$canvas[0].width, this._$canvas[0].height);
 
+    var ratio = LayerScope.Config.zoomRatio;
     // Draw Begin.
-    var ratio = LayerScope.Config.ratio / 100;
     this._ctx.save();
     //this._ctx.translate(this._layerOffset.x * ratio, this._layerOffset.y * ratio);
     this._ctx.scale(ratio, ratio);
@@ -118,8 +132,9 @@ LayerScope.DisplayListDrawer = {
     this._ctx.strokeStyle = '#ff0000';
     this._ctx.fillStyle = "rgba(255, 0, 0, 0.5)";
     this._ctx.lineWidth = 5;
-    for (var rect of this._drawRects) {
-      if (fillRect) {
+    for (var draw of this._drawRects) {
+      var rect = draw.rect;
+      if (draw.fillRect) {
         this._ctx.fillRect(rect[0], rect[1], rect[2], rect[3]);
       }
 
@@ -162,14 +177,11 @@ LayerScope.DisplayListDrawer = {
           if (!!draw.texIDs[0]) {
             break;
           }
-
-          drawInfo.layerRects.push(draw.layerRect[0]);
-          drawInfo.textureRects.push(draw.textureRect[0]);
-        }
-
-        if (draw.texIDs[0] == drawInfo.id) {
-          drawInfo.layerRects.push(draw.layerRect[0]);
-          drawInfo.textureRects.push(draw.textureRect[0]);
+          drawInfo.layerRects = drawInfo.layerRects.concat(draw.layerRect);
+          drawInfo.textureRects = drawInfo.textureRects.concat(draw.textureRect);
+        } else if (draw.texIDs[0] == drawInfo.id) {
+          drawInfo.layerRects = drawInfo.layerRects.concat(draw.layerRect);
+          drawInfo.textureRects = drawInfo.textureRects.concat(draw.textureRect);
           found = true;
         }
       }
@@ -208,10 +220,10 @@ LayerScope.DisplayListDrawer = {
 /*
  * Represents a display list of a layer in a form of tree view.
  */
-LayerScope.DisplayListViewImp = {
+LayerScope.DisplayListView = {
   _$panel: null,
   _frame: null,
-  _layer: null,
+  _layerID: null,
 
   layerSelection: function DLV_layerSelection(layerID) {
     this._$panel.empty();
@@ -222,13 +234,21 @@ LayerScope.DisplayListViewImp = {
       return;
     }
 
+    // 1. Draw the selected layer.
+    LayerScope.DisplayListDrawer.init(this._$panel, this._frame, layer);
+    LayerScope.DisplayListDrawer.draw();
+
+    this._layerID = layerID;
+
     // Generate a display list tree div for the seleted layer
     var displayList = layer.value.displayList;
     let $leftPanel = $('<div id="layerview-right-panel">');
     let $tree = $('<div id="layerview-display-list">');
     let $rootUL = $("<ul>");
 
-    this._createTreeNode($rootUL, displayList);
+    for (var item of displayList.children) {
+      this._createTreeNode($rootUL, item);
+    }
     $tree.append($rootUL);
     $leftPanel.append($tree);
 
@@ -238,10 +258,11 @@ LayerScope.DisplayListViewImp = {
     this._$panel.append($leftPanel);
 
     $table.dataTable({
+      "bInfo": false,              // remove footer.
       "bScrollInfinite": true,
       "bScrollCollapse": true,
-      "sScrollY": "212px",
-      "bSort": false,  // Don't sort it.
+      "sScrollY": "250px",
+      "bSort": false,              // Do not sort.
       "paging":         false,
       //"pageLength":     10,
       "columns": [ {"width": "40%"}, {"width": "60%"} ],
@@ -295,11 +316,13 @@ LayerScope.DisplayListViewImp = {
 
       // Splitter
       LayerScope.utils.log("--------------");
-    }).jstree();
-
-    // Create canvas.
-    LayerScope.DisplayListDrawer.init(this._$panel, this._frame, layer);
-    LayerScope.DisplayListDrawer.draw();
+    }).jstree({
+      "core": {
+        "themes":{
+          "icons":false
+        }
+      }
+    });
   },
 
   active: function DLV_active($panel) {
@@ -307,7 +330,7 @@ LayerScope.DisplayListViewImp = {
 
     this._frame = null;
     this._$panel = $panel;
-    this._layer = null;
+    this._layerID = null;
 
     LayerScope.DisplayListDrawer.active();
   },
@@ -317,9 +340,14 @@ LayerScope.DisplayListViewImp = {
 
     this._frame = null;
     this._$panel = null;
-    this._layer = null;
+    this._layerID = null;
 
     LayerScope.DisplayListDrawer.deactive();
+  },
+
+  zoom: function DLV_zoom(value) {
+    LayerScope.DisplayListDrawer.ratio(value);
+    LayerScope.DisplayListDrawer.draw();
   },
 
   input: function DLV_input(frame) {
@@ -335,11 +363,8 @@ LayerScope.DisplayListViewImp = {
     let $li = $("<li>")
       .appendTo($ul)
       .text(displayItem.name)
-      .attr("data-jstree", displayItem.children.length ?
-                 '{"icon":"css/layers-icon.png"}' :
-                 '{"icon":"css/texture-icon.png"}')
       .attr("display-item-index", displayItem.index)
-        ;
+      ;
 
     if (displayItem.children.length > 0) {
       let $childUL = $("<ul>").appendTo($li);
@@ -371,7 +396,6 @@ LayerScope.DisplayListViewImp = {
     $table.row.add(["Full Log", displayItem.line]);
 
     $table.draw();
-
   }
 };
 

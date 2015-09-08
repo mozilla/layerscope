@@ -10,99 +10,82 @@ if (typeof LayerScope == "undefined" || !LayerScope) {
 
 LayerScope.NO_FRAMES = "No frames"
 
-LayerScope.ZoomController = {
-  _ratioRange: [12.5, 25, 50, 100, 150, 200, 300],
-  _ratio: 3,
-
-  get ratio() {
-    return this._ratioRange[this._ratio];
+LayerScope.ViewerControls = {
+  attach: function VC_attach($textureView, $quadView, $layerView) {
+    this._attachControl($textureView, "url(css/2DView.png)",
+                        "Texture View", "2D");
+    this._attachControl($quadView, "url(css/3DView.png)",
+                        "DrawQuad View", "3D");
+    this._attachControl($layerView, "url(css/DLView.png)",
+                        "Layer View", "DL");
   },
 
-  attach: function FC_attach($textureView, $drawView, $displayView,
-                             $zoomIn, $zoomOne, $zoomOut) {
+  _attachControl: function VC_attachControl($view, imageFile, title, msgType) {
     // View switch button
-    $textureView.css("background-image", "url(css/2DView.png)");
-    $textureView.attr("title", "Texture View");
-    $textureView.button()
+    $view.css("background-image", imageFile);
+    $view.attr("title", title);
+    $view.button()
       .on("click", function(event) {
-        LayerScope.MessageCenter.fire("buffer.view", "2D");
+        LayerScope.MessageCenter.fire("buffer.view", msgType);
         LayerScope.Session.redraw();
       });
+  }
+};
 
-    $drawView.css("background-image", "url(css/3DView.png)");
-    $drawView.attr("title", "Draw Quad View");
-    $drawView.button()
-      .on("click", function(event) {
-        LayerScope.MessageCenter.fire("buffer.view", "3D");
-        LayerScope.Session.redraw();
-      });
+LayerScope.ZoomControls = {
+  _ratioRange: [12.5, 25, 50, 100, 150, 200, 300],
+  _ratioIndex: 3,
 
-    $displayView.css("background-image", "url(css/DLView.png)");
-    $displayView.attr("title", "Layer View");
-    $displayView.button()
-      .on("click", function(event) {
-        LayerScope.MessageCenter.fire("buffer.view", "DL");
-        LayerScope.Session.redraw();
-      });
+  attach: function ZC_attach($zoomIn, $zoomOne, $zoomOut) {
+    var self = this;
+
+    var fireZoomEvent = function (ratio) {
+      self._ratioIndex = ratio;
+      LayerScope.Config.zoomRatio = self._ratioRange[ratio] / 100.0;
+      LayerScope.MessageCenter.fire("zoom", LayerScope.Config.zoomRatio);
+    }
 
     // Zoom-in button
     $zoomIn.button()
       .on("click", function(event) {
-        $zoomOut.button("option", "disabled", false);
-
-        var ratio = LayerScope.ZoomController._ratio;
-        if (++ratio  == LayerScope.ZoomController._ratioRange.length - 1) {
-          $zoomIn.button("option", "disabled", true);
-        }
-
-        LayerScope.ZoomController._ratio++;
-        LayerScope.Config.ratio = LayerScope.ZoomController._ratioRange[ratio];
-        LayerScope.Session.redraw();
-      });
-    $zoomIn.css("background-image", "url(css/zoom-in.png)");
-    $zoomIn.attr("title", "Zoom in");
-
-    // 100% button
-    $zoomOne.button()
-      .on("click", function(event) {
-        $zoomIn.button("option", "disabled", false);
-        $zoomOut.button("option", "disabled", false);
-
-        if (LayerScope.ZoomController._ratio == 3) {
+        var ratio = self._ratioIndex + 1;
+        if (ratio  == self._ratioRange.length - 1) {
           return;
         }
 
-        LayerScope.ZoomController._ratio = 3;
-        LayerScope.Config.ratio = LayerScope.ZoomController._ratioRange[3];
-        LayerScope.Session.redraw();
+        fireZoomEvent(ratio);
       });
-    $zoomOne.css("background-image", "url(css/zoom-1.png)");
-    $zoomOne.attr("title", "1:1");
+    this._attachControl($zoomIn, "url(css/zoom-in.png)", "Zoom In");
+
+    // 1:1 button
+    $zoomOne.button()
+      .on("click", function(event) {
+        var ratio = 3;
+        if (self._ratioIndex == ratio) {
+          return;
+        }
+
+        fireZoomEvent(ratio);
+      });
+    this._attachControl($zoomOne, "url(css/zoom-1.png)", "1:1");
 
     // Zoom-out button.
     $zoomOut.button()
       .on("click", function(event) {
-        $zoomIn.button("option", "disabled", false);
-
-        var ratio = LayerScope.ZoomController._ratio;
-        if (--ratio == 0) {
-          $zoomOut.button("option", "disabled", true);
+        var ratio = self._ratioIndex - 1;
+        if (ratio == 0) {
+          return;
         }
 
-        LayerScope.ZoomController._ratio--;
-        LayerScope.Config.ratio = LayerScope.ZoomController._ratioRange[ratio];
-        LayerScope.Session.redraw();
+        fireZoomEvent(ratio);
       });
-    $zoomOut.css("background-image", "url(css/zoom-out.png)");
-    $zoomOut.attr("title", "Zoom out");
+    this._attachControl($zoomOut, "url(css/zoom-out.png)", "Zoom Out");
+  },
 
-    // Enable tool buttons by default.
-    $zoomIn.button("option", "disabled", false);
-    $zoomOne.button("option", "disabled", false);
-    $zoomOut.button("option", "disabled", false);
-    $textureView.button("option", "disabled", false);
-    $drawView.button("option", "disabled", false);
-    $displayView.button("option", "disabled", false);
+  _attachControl: function ZC_attachControl($zoom, imageFile, title) {
+    $zoom.css("background-image", imageFile);
+    $zoom.attr("title", title);
+    $zoom.button("option", "disabled", false);
   }
 };
 

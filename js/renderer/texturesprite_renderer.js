@@ -7,13 +7,14 @@
 if (typeof LayerScope == "undefined" || !LayerScope) {
   LayerScope = {};
 }
-LayerScope.TwoDViewImp = {
+
+LayerScope.SpriteView = {
   _$panel: null,
   _frame: null,
   _textures: [],
   _colors: [],
 
-  layerSelection: function TWD_layerSelection(layerID) {
+  layerSelection: function SV_layerSelection(layerID) {
     $(".selected-sprite").removeClass("selected-sprite");
     var $sprites = $("." + layerID).addClass("selected-sprite");
     if ($sprites.length == 0) {
@@ -25,7 +26,7 @@ LayerScope.TwoDViewImp = {
     $("#texture-container").animate({scrollTop:top}, '500', 'swing');
   },
 
-  active: function TWD_active($panel) {
+  active: function SV_active($panel) {
     this._frame = null;
     this._textures = [];
     this._colors = [];
@@ -33,12 +34,16 @@ LayerScope.TwoDViewImp = {
     this._$panel = $panel;
   },
 
-  deactive: function TWD_deactive($panel) {
+  deactive: function SV_deactive($panel) {
     this._frame = null;
     $panel.empty();
   },
 
-  input: function TWD_input(frame) {
+  zoom: function SV_zoom(value) {
+    this._resizeSprites(this._textures, this._colors);
+  },
+
+  input: function SV_input(frame) {
     // Regenerate texture and color sprite iff we get a new frame input.
     if (frame != this._frame) {
       this._$panel.empty();
@@ -54,7 +59,7 @@ LayerScope.TwoDViewImp = {
     this._resizeSprites(this._textures, this._colors);
   },
 
-  _createTexSprites: function TWD_createTexSprites(frame, $panel) {
+  _createTexSprites: function SV_createTexSprites(frame, $panel) {
     for (let texNode of frame.textureNodes) {
       if (!texNode) {
         continue;
@@ -115,35 +120,30 @@ LayerScope.TwoDViewImp = {
     }
   },
 
-  _resizeSprites: function TWD_drawTexSprites(textures, colors) {
-    let ratio = LayerScope.Config.ratio / 100;
+  _resizeSprites: function SV_drawTexSprites(textureSprites, colorSprites) {
+    var ratio = LayerScope.Config.zoomRatio;
 
     // Resize tex sprites.
-    for (let i = 0; i < textures.length; i++) {
-      let $canvas = textures[i];
-      let tex = this._frame.textureNodes[i];
-      if (!tex)
-        continue;
-      let imageData = LayerScope.LayerBufferRenderer._graph.findImage(tex.texID);
-
+    for (let $canvas of textureSprites) {
       $canvas
         .attr("class", "background-" + LayerScope.Config.background)
-        .css('width', imageData.width * ratio)
-        .css('height', imageData.height * ratio)
+        .css('width', $canvas.attr("width") * ratio)
+        .css('height', $canvas.attr("height") * ratio)
         ;
     }
 
     // Resize color sprites.
-    for (let i = 0; i < colors.length; i++) {
+    for (let i = 0; i < colorSprites.length; i++) {
       let color = this._frame.colors[i];
 
-      colors[i]
+      colorSprites[i]
         .width(color.width * ratio)
         .height(color.height * ratio)
+        ;
     }
   },
 
-  _createCanvas: function TWD_createCanvas(imageData) {
+  _createCanvas: function SV_createCanvas(imageData) {
     let $canvas = $("<canvas>")
       .attr("class", "background-" + LayerScope.Config.background)
       .attr('width', imageData.width)
@@ -156,7 +156,7 @@ LayerScope.TwoDViewImp = {
     return $canvas;
   },
 
-  _createColorSprites: function TWD_createColorSprites(frame, $panel) {
+  _createColorSprites: function SV_createColorSprites(frame, $panel) {
     for (let o of frame.colors) {
       let $sprite = $("<div>").addClass("buffer-sprite")
       .addClass(o.layerRef.low.toString());

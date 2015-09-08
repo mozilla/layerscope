@@ -19,9 +19,10 @@ LayerScope.TreeRenderer = {
 
   init: function TR_init(graph) {
     $('#layer-property-table').dataTable({
+      "bInfo": false,              // remove footer.
       "bScrollInfinite": true,
       "bScrollCollapse": true,
-      "sScrollY": "210px",
+      "sScrollY": "250px",
       "scrollCollapse": true,
       "paging":         false,
       //"pageLength":     10,
@@ -43,7 +44,7 @@ LayerScope.TreeRenderer = {
   begin: function LR_begin() {
     this._selectedLayerID =  null;
 
-    $("#tree-pane").empty();
+    $("#layer-tree-holder").empty();
 
     // Clear is not enough, we need to force draw here.
     $("#layer-property-table").DataTable().clear();
@@ -52,13 +53,13 @@ LayerScope.TreeRenderer = {
 
   input: function TR_input(frame) {
     if (frame.layerTree.length == 0) {
-      $("#tree-pane").empty();
+      $("#layer-tree-holder").empty();
       $("#layer-property-table").DataTable().clear();
 
       return;
     }
 
-    this._drawLayerTree(frame, $("#tree-pane"));
+    this._drawLayerTree(frame, $("#layer-tree-holder"));
     if (!!this._selectedLayerID) {
       let children = $("#jsTreeRoot").find("li");
       for (var i = 0; i < children.length; i++) {
@@ -132,7 +133,8 @@ LayerScope.TreeRenderer = {
           LayerScope.utils.hex8(node.value.ptr.low) + "/ " +
           //node.value.contentLayer + "/ " +
           (draws.length ? draws.length + " draws/ " : "0 draws /") +
-          count + " paint)");
+          (count ? count + " paints)" : "0 paint)")
+        );
 
         // Create tree-ish
         let isRoot = !node.value.parentPtr.low;

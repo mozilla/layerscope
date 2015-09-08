@@ -9,9 +9,9 @@ if (typeof LayerScope == "undefined" || !LayerScope) {
 }
 
 LayerScope.LayerBufferRendererMap = {
-  "2D": LayerScope.TwoDViewImp,
-  "3D": LayerScope.ThreeDViewImp,
-  "DL": LayerScope.DisplayListViewImp
+  "2D": LayerScope.SpriteView,
+  "3D": LayerScope.DrawQuadView,
+  "DL": LayerScope.DisplayListView
 };
 
 LayerScope.LayerBufferRenderer = {
@@ -21,11 +21,11 @@ LayerScope.LayerBufferRenderer = {
   init: function TR_init(graph) {
     this._graph = graph;
 
-    // Set the default buffer view.
-    this._view = LayerScope.TwoDViewImp;
+    this._view = LayerScope.SpriteView;
 
     LayerScope.MessageCenter.subscribe("layer.select", this);
     LayerScope.MessageCenter.subscribe("buffer.view", this);
+    LayerScope.MessageCenter.subscribe("zoom", this);
 
     // test code.
     if (LayerScope.DrawTesting) {
@@ -38,15 +38,17 @@ LayerScope.LayerBufferRenderer = {
     if (name == "layer.select") {
       this._view.layerSelection(value);
     } else if (name == "buffer.view") {
-      this._view.deactive($("#texture-container"));
+      this._view.deactive($("#renderer-holder"));
       this._view = LayerScope.LayerBufferRendererMap[value];
-      this._view.active($("#texture-container"));
+      this._view.active($("#renderer-holder"));
+    } else if (name == "zoom") {
+      this._view.zoom(value);
     }
   },
 
   begin: function LR_begin() {
-    $("#texture-container").empty();
-    this._view.active($("#texture-container"));
+    $("#renderer-holder").empty();
+    this._view.active($("#renderer-holder"));
   },
   end: function LR_end() {
 

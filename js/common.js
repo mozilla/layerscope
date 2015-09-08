@@ -8,6 +8,12 @@ if (typeof LayerScope == "undefined" || !LayerScope) {
   LayerScope = {};
 }
 
+LayerScope.Config = {
+  background: "pattern",
+  drawQuadGrid: true,
+  zoomRatio: 1.0,
+};
+
 LayerScope.utils = {
   _dumpLog: true,
 

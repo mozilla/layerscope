@@ -200,7 +200,8 @@ LayerWorker.TexBuilder = {
                                                 this._contentMap[i].key,
                                                 layerRef,
                                                 ptexture.glcontext,
-                                                false);
+                                                false,
+                                                ptexture.isMask);
           return node;
         }
       }
@@ -221,7 +222,8 @@ LayerWorker.TexBuilder = {
                                         key,
                                         layerRef,
                                         ptexture.glcontext,
-                                        true);
+                                        true,
+                                        ptexture.isMask);
 
     // Update content map.
     for (var i = 0; i < this._contentMap.length; i++) {

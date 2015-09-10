@@ -90,6 +90,11 @@ LayerScope.SpriteView = {
         $title.append($("<p>Layer " + LayerScope.utils.hex8(layerID) + "</p>"));
       }
 
+      // show isMask.
+      if (texNode.isMask) {
+        $title.append($("<p>Mask</p>"));
+      }
+
       if (!!layerID){
         $sprite.on("click", function() {
           LayerScope.MessageCenter.fire("buffer.select",

@@ -107,17 +107,36 @@ LayerScope.utils = {
 
 //  Don't append any functions to this object, since we will
 //  serialize/deserialize this object into JSON string.
-LayerScope.TextureNode = function(name, target, texID, layerRef, contextRef, newContent, isMask) {
-  this.name = name;
-  this.target = target;
+LayerScope.TextureNode = function(ptexture, texID, layerRef, newContent) {
+  this.name = ptexture.name;
+  this.target = ptexture.target;
 
   // Don't keep layer or texture object here. Instead, keep id of them.
   // So that we don't need relink action in LayerScope.Storage.load.
   this.layerRef = layerRef;
-  this.contextRef = contextRef;
+  this.contextRef = ptexture.glcontext;
   this.texID = texID;
   this.newContent = newContent;
-  this.isMask = isMask;
+  this.isMask = ptexture.isMask;
+
+  // set texture/mask attributes
+  if (ptexture.isMask) {
+    this.mIs3D = ptexture.mask.mIs3D;
+    this.mSize = !!ptexture.mask.mSize ? {w:ptexture.mask.mSize.w, h:ptexture.mask.mSize.h} : null;
+
+    if (!!ptexture.mask.mMaskTransform) {
+      this.mMaskTransform = {
+        m: [ele for (ele of ptexture.mask.mMaskTransform.m)]
+      };
+    }
+  } else {
+    this.mPremultiplied = ptexture.mPremultiplied;
+    this.mFilter = ptexture.mFilter;
+    this.mTextureCoords = !!ptexture.mTextureCoords ? {x: ptexture.mTextureCoords.x,
+                                                       y: ptexture.mTextureCoords.y,
+                                                       w: ptexture.mTextureCoords.w,
+                                                       h: ptexture.mTextureCoords.h} : null;
+  }
 }
 
 LayerScope.ImageDataPool = function () {

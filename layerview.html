@@ -437,11 +437,26 @@
     <div id="left-data-pane" class="data-pane ui-widget-content resizable-left">
       <!--<h3 class="ui-widget-header">Layer Tree</h3>-->
       <div id="layer-tree-holder" class="resizable-top"></div>
-      <table id="layer-property-table" class="display" cellspacing="0">
-        <thead>
-          <tbody></tbody>
-        </thead>
-      </table>
+      <div id="property-pane">
+        <ul>
+          <li><a href="#layer-tab">Layer</a></li>
+          <li><a href="#texture-tab">Texture</a></li>
+        </ul>
+        <div id="layer-tab">
+          <table id="layer-property-table" class="display" cellspacing="0">
+            <thead>
+              <tbody></tbody>
+            </thead>
+          </table>
+        </div>
+        <div id="texture-tab">
+          <table id="texture-property-table" class="display" cellspacing="0">
+            <thead>
+              <tbody></tbody>
+            </thead>
+          </table>
+        </div>
+      </div>
     </div>
     <!-- Buffer View -->
     <div id="right-data-pane" class="data-pane resizable-right">

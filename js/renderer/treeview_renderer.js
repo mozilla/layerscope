@@ -18,6 +18,7 @@ LayerScope.TreeRenderer = {
   _selectedLayerID: null,
 
   init: function TR_init(graph) {
+    $('#property-pane').tabs();
     $('#layer-property-table').dataTable({
       "bInfo": false,              // remove footer.
       "bScrollInfinite": true,
@@ -35,8 +36,19 @@ LayerScope.TreeRenderer = {
         }
       }
     });
+    $('#texture-property-table').dataTable({
+      "bScrollInfinite": true,
+      "bScrollCollapse": true,
+      "sScrollY": "210px",
+      "scrollCollapse": true,
+      "paging":         false,
+      "columns": [ {"width": "40%"}, {"width": "60%"} ]
+    });
+
     LayerScope.MessageCenter.subscribe("layer.select", this);
     LayerScope.MessageCenter.subscribe("buffer.select", this);
+    LayerScope.MessageCenter.subscribe("texture.select", this);
+    LayerScope.MessageCenter.subscribe("color.select", this);
 
     this._graph = graph;
   },
@@ -49,12 +61,15 @@ LayerScope.TreeRenderer = {
     // Clear is not enough, we need to force draw here.
     $("#layer-property-table").DataTable().clear();
     $("#layer-property-table").DataTable().draw();
+    $("#texture-property-table").DataTable().clear();
+    $("#texture-property-table").DataTable().draw();
   },
 
   input: function TR_input(frame) {
     if (frame.layerTree.length == 0) {
       $("#layer-tree-holder").empty();
       $("#layer-property-table").DataTable().clear();
+      $("#texture-property-table").DataTable().clear();
 
       return;
     }
@@ -76,11 +91,12 @@ LayerScope.TreeRenderer = {
     }
   },
 
-  notify: function LR_notify(name, id) {
+  notify: function LR_notify(name, value) {
     if (name === "layer.select") {
-      this._drawProperty(id);
+      this._drawLayerProperty(value);
     } else if (name === "buffer.select") {
       let children = $("#jsTreeRoot").find("li");
+      let id = value;
 
       for (let i = 0; i < children.length; i++) {
         if ($(children[i]).attr("layer-id") == id) {
@@ -95,12 +111,32 @@ LayerScope.TreeRenderer = {
           break;
         }
       }
+    } else if (name === "texture.select") {
+      this._drawTextureProperty(value);
+    } else if (name === "color.select") {
+      $("#texture-property-table").DataTable().clear().draw();
+      // TODO: Generate color attributes here
     }
   },
 
-  _drawProperty: function RT_drawProperty(id) {
+  _drawTextureProperty: function RT_drawTextureProperty(texNode) {
+    var $table = $("#texture-property-table").DataTable();
+    $table.clear();
+    if(!!texNode) {
+      var dataSet = [];
+      generateTextureAttributes(texNode, dataSet);
+      if (dataSet.length > 0) {
+        for (let i = 0; i< dataSet.length; i++) {
+          $table.row.add(dataSet[i]);
+        }
+        $table.draw();
+      }
+    }
+  },
+
+  _drawLayerProperty: function RT_drawLayerProperty(id) {
     // Clear Layer property table.
-    var $table = $("#layer-property-table").DataTable()
+    var $table = $("#layer-property-table").DataTable();
     $table.clear();
 
     var layer = LayerScope.FrameUtils.findLayerByID(this._graph.frame, id);
@@ -207,7 +243,9 @@ function generateLayerAttributes(data, dataSet) {
     "Nearest",
     "Bilinear",
     "Gaussian",
-    "Sentinel"
+    "Sentinel",
+    "Linear",
+    "Point"
   ];
   // Show functions wrapper
   var convertor = {
@@ -341,5 +379,57 @@ function generateLayerAttributes(data, dataSet) {
   if (!!data.size) {
     let value = "w=" + data.size.w + ", h=" + data.size.h + "";
     dataSet.push(["Size", value]);
+  }
+}
+
+/**
+ * Handle texture/mask attribute and show them in html
+ */
+function generateTextureAttributes(tex, dataSet) {
+  // Filter Type Map
+  const FilterMap = [
+    "GOOD",
+    "LINEAR",
+    "POINT",
+  ];
+  var convertor = {
+    coords: function(rect, name) {
+      dataSet.push( [
+          name,
+          "x = " + rect.x.toFixed(5) + "<br>" +
+          "y = " + rect.y.toFixed(5) + "<br>" +
+          "w = " + rect.w.toFixed(5) + "<br>" +
+          "h = " + rect.h.toFixed(5)
+      ])
+    },
+    transform: function(transform, name) {
+        let value = "";
+        for (let i = 0, j = 1; i < 16; i += 4, j++) {
+            value += "r" + j + " = [" + transform.m[i].toFixed()   + ", " + transform.m[i+1].toFixed() + ", " +
+                     transform.m[i+2].toFixed() + ", " + transform.m[i+3].toFixed() + "]<br>";
+        }
+        dataSet.push([name, value]);
+    }
+  };
+
+  if (tex.isMask) { // Mask Properties
+    dataSet.push(["mIs3D", tex.mIs3D ? "True" : "False"]);
+
+    if (!!tex.mSize) {
+      dataSet.push(["mSize", "w = " + tex.mSize.w + "<br>" + "h = " + tex.mSize.h]);
+    }
+    if (!!tex.mMaskTransform) {
+      convertor.transform(tex.mMaskTransform, "mMaskTransform");
+    }
+  } else { // Texture Properties
+    if (!!tex.mTextureCoords) {
+      convertor.coords(tex.mTextureCoords, "mTextureCoords");
+    }
+
+    dataSet.push(["mPremultiplied", tex.mPremultiplied ? "True" : "False"]);
+
+    if (!!tex.mFilter) {
+      dataSet.push(["mFilter", FilterMap[tex.mFilter]]);
+    }
   }
 }

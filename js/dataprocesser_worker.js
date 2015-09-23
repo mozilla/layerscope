@@ -195,14 +195,12 @@ LayerWorker.TexBuilder = {
       for (var i = 0; i < this._contentMap.length; i++) {
         var element = this._contentMap[i];
         if (this._contentMap[i].name == ptexture.name) {
-          var node = new LayerScope.TextureNode(ptexture.name,
-                                                ptexture.target,
+          var node = new LayerScope.TextureNode(ptexture,
                                                 this._contentMap[i].key,
                                                 layerRef,
-                                                ptexture.glcontext,
-                                                false,
-                                                ptexture.isMask);
-          return node;
+                                                false);
+
+          return node
         }
       }
 
@@ -217,13 +215,7 @@ LayerWorker.TexBuilder = {
       ptexture.dataformat,
       ptexture.stride);
 
-    var node = new LayerScope.TextureNode(ptexture.name,
-                                        ptexture.target,
-                                        key,
-                                        layerRef,
-                                        ptexture.glcontext,
-                                        true,
-                                        ptexture.isMask);
+    var node = new LayerScope.TextureNode(ptexture, key, layerRef, true);
 
     // Update content map.
     for (var i = 0; i < this._contentMap.length; i++) {

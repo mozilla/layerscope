@@ -107,7 +107,7 @@ LayerScope.utils = {
 
 //  Don't append any functions to this object, since we will
 //  serialize/deserialize this object into JSON string.
-LayerScope.TextureNode = function(name, target, texID, layerRef, contextRef, newContent) {
+LayerScope.TextureNode = function(name, target, texID, layerRef, contextRef, newContent, isMask) {
   this.name = name;
   this.target = target;
 
@@ -117,6 +117,7 @@ LayerScope.TextureNode = function(name, target, texID, layerRef, contextRef, new
   this.contextRef = contextRef;
   this.texID = texID;
   this.newContent = newContent;
+  this.isMask = isMask;
 }
 
 LayerScope.ImageDataPool = function () {

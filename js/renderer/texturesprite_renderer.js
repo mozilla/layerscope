@@ -13,6 +13,7 @@ LayerScope.SpriteView = {
   _frame: null,
   _textures: [],
   _colors: [],
+  _sortedSprites: [],
 
   layerSelection: function SV_layerSelection(layerID) {
     $(".selected-sprite").removeClass("selected-sprite");
@@ -49,14 +50,34 @@ LayerScope.SpriteView = {
       this._$panel.empty();
       this._textures = [];
       this._colors = [];
+      this._sortedSprites = [];
 
       this._createTexSprites(frame, this._$panel);
       this._createColorSprites(frame, this._$panel);
+      this._sortedSprites.forEach(sprite => {
+        this._$panel.append(sprite);
+      });
+
       this._frame = frame;
     }
 
     // Fit texCanvas size according to the current zoom ratio.
     this._resizeSprites(this._textures, this._colors);
+  },
+
+  _sortSpriteByLayerID: function SV_sortSpriteByLayerID($sprite) {
+    var inserted = false;
+    for (i = 0; i < this._sortedSprites.length; i++) {
+      if ($sprite.layerID < this._sortedSprites[i].layerID) {
+        this._sortedSprites.splice(i, 0, $sprite);
+        inserted = true;
+        break;
+      }
+    }
+
+    if (!inserted) {
+      this._sortedSprites.push($sprite);
+    }
   },
 
   _createTexSprites: function SV_createTexSprites(frame, $panel) {
@@ -89,6 +110,12 @@ LayerScope.SpriteView = {
         $sprite.attr("data-layer-id", layerID.toString());
         $title.append($("<p>Layer " + LayerScope.utils.hex8(layerID) + "</p>"));
       }
+      $sprite.layerID = layerID;
+
+      // show isMask.
+      if (texNode.isMask) {
+        $title.append($("<p>Mask</p>"));
+      }
 
       if (!!layerID){
         $sprite.on("click", function() {
@@ -115,8 +142,8 @@ LayerScope.SpriteView = {
         ctx.fillRect(0, 0, 10, 20);
       }
 
-      // Last step, append this new sprite.
-      $panel.append($sprite);
+      // Last step, push this new sprite to sorted array.
+      this._sortSpriteByLayerID($sprite);
     }
   },
 
@@ -169,6 +196,7 @@ LayerScope.SpriteView = {
 
       let layerID = o.layerRef.low;
       $title.attr("data-layer-id", layerID.toString());
+      $sprite.layerID = layerID;
 
       if (o.type == "Color") {
         var $bgdiv = $("<div>").addClass("background-" + LayerScope.Config.background);
@@ -185,7 +213,8 @@ LayerScope.SpriteView = {
       });
 
       $sprite.append($bgdiv);
-      $panel.append($sprite);
+      // Last step, push this new sprite to sorted array.
+      this._sortSpriteByLayerID($sprite);
     }
   }
 };

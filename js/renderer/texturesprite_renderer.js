@@ -66,18 +66,14 @@ LayerScope.SpriteView = {
   },
 
   _sortSpriteByLayerID: function SV_sortSpriteByLayerID($sprite) {
-    var inserted = false;
     for (i = 0; i < this._sortedSprites.length; i++) {
       if ($sprite.layerID < this._sortedSprites[i].layerID) {
         this._sortedSprites.splice(i, 0, $sprite);
-        inserted = true;
-        break;
+        return;
       }
     }
 
-    if (!inserted) {
-      this._sortedSprites.push($sprite);
-    }
+    this._sortedSprites.push($sprite);
   },
 
   _createTexSprites: function SV_createTexSprites(frame, $panel) {
@@ -117,10 +113,15 @@ LayerScope.SpriteView = {
         $title.append($("<p>Mask</p>"));
       }
 
-      if (!!layerID){
+      // we need a let variable here because we can't create
+      // a fresh binding in each for-loop iteration. see Bug 449811
+      let tex = texNode;
+      if (!!layerID) {
         $sprite.on("click", function() {
           LayerScope.MessageCenter.fire("buffer.select",
             layerID.toString());
+          LayerScope.MessageCenter.fire("texture.select",
+            tex);
         });
       }
 
@@ -208,8 +209,10 @@ LayerScope.SpriteView = {
         this._colors.push($cdiv);
       }
 
+      let color = o;
       $sprite.on("click", function() {
         LayerScope.MessageCenter.fire("buffer.select", layerID.toString());
+        LayerScope.MessageCenter.fire("color.select", color);
       });
 
       $sprite.append($bgdiv);
@@ -218,4 +221,3 @@ LayerScope.SpriteView = {
     }
   }
 };
-

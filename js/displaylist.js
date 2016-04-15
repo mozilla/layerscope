@@ -77,7 +77,7 @@ LayerScope.DisplayItem.getHitRegion = function(displayItem) {
 }
 
 LayerScope.DisplayItem.getBoundary = function(displayItem, layer, unit) {
-  var region = [ (i / unit) for (i of displayItem.layerBounds)];
+  var region = Array.prototype.map.call(displayItem.layerBounds, i => i / unit);
   return LayerScope.DisplayItem.ApplyTransform(displayItem, region, layer, unit);
 }
 

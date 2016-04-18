@@ -307,11 +307,15 @@ LayerWorker.TexBuilder = {
  */
 LayerWorker.LayerTreeBuilder = {
   build: function LTB_build(players) {
-    var layers = [this._createLayerNode(layer) for (layer of players.layer)];
+    var layers = Array.prototype.map.call(players.layer, layer => this._createLayerNode(layer));
     return this._buildLayerTree(layers);
   },
 
-   _createLayerNode: function LTB_createLayerNode(data) {
+  _mapRegion: function LTB_mapRegion(region) {
+    return Array.prototype.map.call(region, n => { return {x:n.x, y:n.y, w:n.w, h:n.h}; });
+  },
+
+  _createLayerNode: function LTB_createLayerNode(data) {
     var node = {
       type: data.type,
       ptr: {low: data.ptr.getLowBitsUnsigned(),
@@ -321,12 +325,12 @@ LayerWorker.LayerTreeBuilder = {
       shadow: null,
       clip: !!data.clip ? {x: data.clip.x, y: data.clip.y, w: data.clip.w, h: data.clip.h} : null,
       transform: null,
-      region: !!data.vRegion ? [{x:n.x, y:n.y, w:n.w, h:n.h} for (n of data.vRegion.r)] : null,
-      hitRegion: !!data.hitRegion ? [{x:n.x, y:n.y, w:n.w, h:n.h} for (n of data.hitRegion.r)] : null,
-      dispatchRegion: !!data.dispatchRegion ? [{x:n.x, y:n.y, w:n.w, h:n.h} for (n of data.dispatchRegion.r)] : null,
-      noActionRegion: !!data.noActionRegion ? [{x:n.x, y:n.y, w:n.w, h:n.h} for (n of data.noActionRegion.r)] : null,
-      hPanRegion: !!data.hPanRegion ? [{x:n.x, y:n.y, w:n.w, h:n.h} for (n of data.hPanRegion.r)] : null,
-      vPanRegion: !!data.vPanRegion ? [{x:n.x, y:n.y, w:n.w, h:n.h} for (n of data.vPanRegion.r)] : null,
+      region: !!data.vRegion ? this._mapRegion(data.vRegion.r) : null,
+      hitRegion: !!data.hitRegion ? this._mapRegion(data.hitRegion.r) : null,
+      dispatchRegion: !!data.dispatchRegion ? this._mapRegion(data.dispatchRegion.r) : null,
+      noActionRegion: !!data.noActionRegion ? this._mapRegion(data.noActionRegion.r) : null,
+      hPanRegion: !!data.hPanRegion ? this._mapRegion(data.hPanRegion.r) : null,
+      vPanRegion: !!data.vPanRegion ? this._mapRegion(data.vPanRegion.r) : null,
       opaque: data.cOpaque,
       alpha: data.cAlpha,
       opacity: data.opacity,
@@ -335,7 +339,7 @@ LayerWorker.LayerTreeBuilder = {
       mask: !!data.mask ? {low: data.mask.getLowBitsUnsigned(), high: data.mask.getHighBitsUnsigned()} : null,
 
       // Specific layer data
-      valid: !!data.valid ? [{x:n.x, y:n.y, w:n.w, h:n.h} for (n of data.valid.r)] : null,
+      valid: !!data.valid ? this._mapRegion(data.valid.r) : null,
       color: data.color,
       filter: data.filter,
       refID: !!data.refID ? {low: data.refID.getLowBitsUnsigned(), high: data.refID.getHighBitsUnsigned()} : null,
@@ -350,8 +354,8 @@ LayerWorker.LayerTreeBuilder = {
                                     h: data.shadow.clip.h} : null,
         transform: !!data.shadow.transform ? {is2D: !!data.shadow.transform.is2D,
                                               isID: !!data.shadow.transform.isID,
-                                              m: [e for (e of data.shadow.transform.m)]} : null,
-        region: !!data.shadow.vRegion ? [{x:n.x, y:n.y, w:n.w, h:n.h} for (n of data.shadow.vRegion.r)] : null
+                                              m: Array.from(data.shadow.transform.m)} : null,
+        region: !!data.shadow.vRegion ? this._mapRegion(data.shadow.vRegion.r) : null
       };
     }
 
@@ -360,7 +364,7 @@ LayerWorker.LayerTreeBuilder = {
       node.transform = {
         is2D: !!data.transform.is2D,
         isID: !!data.transform.isID,
-        m: [ele for (ele of data.transform.m)]
+        m: Array.from(data.transform.m)
       };
     }
 

@@ -126,7 +126,7 @@ LayerScope.TextureNode = function(ptexture, texID, layerRef, newContent) {
 
     if (!!ptexture.mask.mMaskTransform) {
       this.mMaskTransform = {
-        m: [ele for (ele of ptexture.mask.mMaskTransform.m)]
+        m: Array.from(ptexture.mask.mMaskTransform.m)
       };
     }
   } else {
